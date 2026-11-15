@@ -220,7 +220,7 @@ List<(String, String)> otherDefaultSettings() {
       ('show_monitors_tip', kKeyShowMonitorsToolbar),
     if ((isDesktop || isWebDesktop))
       ('Collapse toolbar', kOptionCollapseToolbar),
-    ('Show remote cursor', kOptionShowRemoteCursor),
+    if (!const bool.fromEnvironment('RYADOM')) ('Show remote cursor', kOptionShowRemoteCursor),
     ('Follow remote cursor', kOptionFollowRemoteCursor),
     ('Follow remote window focus', kOptionFollowRemoteWindow),
     if ((isDesktop || isWebDesktop)) ('Zoom cursor', kOptionZoomCursor),

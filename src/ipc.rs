@@ -1009,11 +1009,32 @@ async fn handle(data: Data, stream: &mut Connection) {
                 } else if name == "unlock-pin" {
                     value = Some(Config::get_unlock_pin());
                 } else {
-                    value = None;
+                    #[cfg(feature = "ryadom")]
+                    {
+                        value=match name.as_str() {
+                            "ryadom-active-code" => Some(crate::ryadom::active_code()),
+                            "ryadom-registration-state" => Some(crate::ryadom::registration_state().to_string()),
+                            "ryadom-resume-state" => Some(crate::server::ryadom_resume::snapshot().to_string()),
+                            "ryadom-network-state" => Some(crate::ryadom::network_helper::snapshot().to_string()),
+                            _ => None,
+                        };
+                    }
+                    #[cfg(not(feature = "ryadom"))]
+                    { value = None; }
                 }
                 allow_err!(stream.send(&Data::Config((name, value))).await);
             }
             Some(value) => {
+                #[cfg(feature = "ryadom")]
+                if name=="ryadom-resume-revoke" {
+                    crate::server::ryadom_resume::revoke(&value);
+                    return;
+                }
+                #[cfg(feature = "ryadom")]
+                if name=="ryadom-network-helper" {
+                    crate::ryadom::network_helper::set_enabled(value=="Y");
+                    return;
+                }
                 let mut updated = true;
                 if name == "id" {
                     // An empty id would wipe the local id and unconfirm the key (cf. #15626).

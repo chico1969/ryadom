@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="ru">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Рядом — проверка связи</title>
+<style>
+body{margin:0;background:#f4f6fc;color:#18243d;font:17px/1.5 system-ui,sans-serif}main{max-width:560px;margin:10vh auto;padding:28px}section{padding:24px;background:white;border-radius:18px}h1{font-size:32px;margin:0 0 20px}h2{font-size:21px;margin:0 0 12px}p{color:#51657a}button{padding:12px 20px;background:#2463eb;color:white;border:0;border-radius:9px;font:inherit;cursor:pointer}button:disabled{opacity:.5;cursor:wait}
+</style>
+<main>
+  <h1>Рядом</h1>
+  <section aria-live="polite">
+    <h2 id="status">Проверяем службу поиска…</h2>
+    <p id="detail">Подождите несколько секунд.</p>
+    <button id="retry" disabled>Проверить ещё раз</button>
+  </section>
+  <p>Проверяется только связь со службой поиска. Эта страница не подключается к рабочему столу и не проверяет P2P или TURN.</p>
+</main>
+<script src="/check.js" defer></script>
+</html>

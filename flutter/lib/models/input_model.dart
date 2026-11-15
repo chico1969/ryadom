@@ -2105,6 +2105,11 @@ class InputModel {
   }
 
   bool _checkPeerControlProtected(double x, double y) {
+    if (const bool.fromEnvironment('RYADOM')) {
+      // The host arbitrates control; delayed cursor snapshots must not block input.
+      lastMousePos = ui.Offset(x, y);
+      return false;
+    }
     if (isViewOnly && showMyCursor) {
       lastMousePos = ui.Offset(x, y);
       return false;

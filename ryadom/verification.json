@@ -1,0 +1,343 @@
+{
+  "releaseReady": false,
+  "status": "family-development-autostart-tested-on-windows",
+  "license": "AGPL-3.0; no application activation or paid feature gate added",
+  "sharedTurn": {
+    "provider": "ExpressTURN",
+    "windows": "recoverable obfuscation authorized by owner for family prototype",
+    "web": "not embedded",
+    "managementApiKey": "not used"
+  },
+  "checks": {
+    "typescript": {
+      "status": "passed",
+      "tests": 19,
+      "evidence": "build-logs/history-web-tests.log"
+    },
+    "browserUnitTests": {
+      "status": "passed",
+      "tests": 19,
+      "evidence": "build-logs/history-web-tests.log"
+    },
+    "webDart": {
+      "status": "passed",
+      "evidence": "build-logs/history-web-ui-analyze.log"
+    },
+    "nativeDart": {
+      "status": "passed",
+      "evidence": "build-logs/history-final-native-analyze.log",
+      "scope": "Ryadom home, history and readable theme; Windows release also compiled main.dart"
+    },
+    "compactNativeLayout": {
+      "status": "passed",
+      "tests": 9,
+      "evidence": "build-logs/autostart-widgets.log",
+      "scope": "Autostart default-on checkbox and both changes; numeric history, layout, cursor/interaction tests retained"
+    },
+    "windowsDependencyTests": {
+      "status": "passed",
+      "tests": 5,
+      "command": "cargo test --locked -p hbb_common --features ryadom-bundled-turn ryadom",
+      "evidence": "build-logs/hbb-tests.log"
+    },
+    "nativeCoreTests": {
+      "status": "passed",
+      "tests": 18,
+      "ignoredLiveOrPhysicalTests": 2,
+      "evidence": "build-logs/autostart-core-tests.log"
+    },
+    "browserSmoke": {
+      "status": "passed",
+      "evidence": "build-logs/browser-smoke.json",
+      "scope": "Current compiled Flutter UI, credential/history storage, direct WebRTC, signed identity, codecs, input, clipboard and recording against protocol fixture on one PC"
+    },
+    "submodulePatch": {
+      "status": "passed",
+      "evidence": "build-logs/p2p-submodule-patch.json",
+      "scope": "Forward on clean pinned archive and reverse on working source; commit unchanged"
+    },
+    "expressTurn": {
+      "status": "passed",
+      "evidence": "build-logs/turn-smoke-express.json",
+      "scope": "64 KiB relay-to-relay between two browser peers on one physical PC"
+    },
+    "nativeExpressTurnIdentity": {
+      "status": "passed",
+      "evidence": "build-logs/native-express-relay-identity.json",
+      "scope": "actual packaged Windows host, signed identity/DTLS, relayed pair and host relay candidate; no desktop authorization or input"
+    },
+    "earlierNativeDesktop": {
+      "status": "passed",
+      "evidence": "build-logs/native-smoke.json",
+      "scope": "earlier development build on same physical PC; owner confirmation, authorized controller and 1920x1080 frame; not two-PC acceptance"
+    },
+    "packagedTurnConfiguration": {
+      "status": "passed",
+      "evidence": "build-logs/packaged-network.json",
+      "scope": "Read-only packaged DLL reports bundled ExpressTURN; shared credential not printed"
+    },
+    "knownPlaintextScan": {
+      "status": "passed",
+      "evidence": "build-logs/autostart-plaintext-scan.json",
+      "scope": "Known owner TURN username/password absent in UTF-8 and UTF-16; not a full security audit"
+    },
+    "runtimeDependencyAudit": {
+      "status": "passed",
+      "evidence": "build-logs/npm-audit.json",
+      "scope": "npm runtime packages only; not application security audit"
+    },
+    "shortCodeLiveLookup": {
+      "status": "passed",
+      "evidence": [
+        "build-logs/migration-portable-auth.json",
+        "build-logs/migration-installed-auth.json"
+      ],
+      "scope": "Current portable and service: signed numeric ID lookup maps to same public identity before and after Setup. Duplicate registration behavior was verified earlier and its code is unchanged"
+    },
+    "windowsBinaries": {
+      "status": "passed",
+      "executables": {
+        "Ryadom.exe": {
+          "bytes": 24140800,
+          "sha256": "dfd28ec52e3f0f6518e50d27d4acefe4af0c7c8d096cacb21c57fbb67113a820"
+        },
+        "Ryadom-Setup.exe": {
+          "bytes": 24140800,
+          "sha256": "dfd28ec52e3f0f6518e50d27d4acefe4af0c7c8d096cacb21c57fbb67113a820"
+        }
+      },
+      "evidence": "build-logs/autostart-payload.json",
+      "scope": "Fixed current Windows release and UI packed; actual local Setup cases and all installed payload files verified"
+    },
+    "physicalTwoPcAcceptance": {
+      "status": "pending"
+    },
+    "installedServiceUacReboot": {
+      "status": "partial-current-build",
+      "evidence": "build-logs/autostart-physical.json",
+      "scope": "UAC elevation accepted; current Setup and runtime Auto/Manual plus Startup link tested; final Auto Running LocalSystem. Windows reboot, Windows login and remote secure-desktop UAC remain pending"
+    },
+    "firebaseHosting": {
+      "status": "pending"
+    },
+    "interactionWidgets": {
+      "status": "passed",
+      "tests": 9,
+      "evidence": "build-logs/autostart-widgets.log",
+      "scope": "Autostart default-on checkbox and both changes; numeric history, layout, cursor/interaction tests retained"
+    },
+    "packagedPayload": {
+      "status": "passed",
+      "files": 91,
+      "evidence": "build-logs/autostart-payload.json",
+      "scope": "Every payload file and executable blob verified; C ABI inspected. Packaging integrity only; actual installation and service verification recorded separately in autostart-physical.json."
+    },
+    "userReportedTwoPcConnection": {
+      "status": "partial",
+      "scope": "User successfully connected to a second laptop with prior build. Network topology and full acceptance matrix not confirmed; new interaction fixes not yet physically tested."
+    },
+    "liveNativeCodecPerformance": {
+      "status": "pending",
+      "scope": "New Windows trial controller compiled/analyzed; must run on two physical PCs while the screen changes. Browser synthetic trials do not establish Windows performance."
+    },
+    "windowsDependencies": {
+      "status": "passed",
+      "files": 16,
+      "evidence": "build-logs/interaction-pe-dependencies.json",
+      "scope": "PE imports resolved against packaged files and current Windows system DLLs; clean Windows matrix still pending"
+    },
+    "liveNativeRegistration": {
+      "status": "passed",
+      "evidence": "build-logs/migration-installed-auth.json",
+      "scope": "Current binary after real portable-to-Setup transition: actual Windows service direct IPv4 WebRTC/DTLS, signed identity and password authorization; test identity only, original configuration restored afterward"
+    },
+    "signalingService": {
+      "status": "passed",
+      "provider": "alwaysdata Free",
+      "url": "https://ryadom-family.alwaysdata.net",
+      "cardAdded": false,
+      "paidPlanEnabled": false,
+      "tests": 1,
+      "evidence": "build-logs/alwaysdata-live-tests.log",
+      "scope": "Published PeerServer 1.0.2: WebSocket registration, duplicate rejection, real sender, numeric alias/lookup round trip, disabled directory and uncached health/check page; not security audit"
+    },
+    "remoteNetworkWithoutVpn": {
+      "status": "passed",
+      "evidence": "User report on 2026-11-14",
+      "scope": "Owner confirmed the real WebSocket check and repeated check at https://ryadom-family.alwaysdata.net/check succeed without VPN on the second laptop. Full desktop session with the rebuilt client remains to be tested. Previous Cloudflare endpoints failed in this network."
+    },
+    "portableSignalingServer": {
+      "status": "passed",
+      "tests": 1,
+      "evidence": "build-logs/alwaysdata-local-tests.log",
+      "scope": "Local Node 24 and published alwaysdata Node server with peer@1.0.2 passed duplicate/lookup/src/directory checks. Docker image build remains untested."
+    },
+    "remoteVpnRegistration": {
+      "status": "partial",
+      "scope": "Historical prior-build result: user confirmed ID appeared with VPN. Exact prior build was not independently confirmed; new alwaysdata reachability is recorded separately."
+    },
+    "northflankSignup": {
+      "status": "blocked",
+      "scope": "User reports Signup is currently disabled; no account or resources created."
+    },
+    "back4appDeployment": {
+      "status": "unsuitable",
+      "scope": "Owner uploaded nine source files; no app created. Dashboard and current primary documentation limit Free public URL to 60 minutes; no paid plan enabled."
+    },
+    "pagesAlternateSignaling": {
+      "status": "passed",
+      "url": "https://ryadom-connect.pages.dev",
+      "initialDeploymentId": "6a241783-9167-4d10-a38b-5decdde55ecd",
+      "binding": "SIGNAL -> ryadom-signaling (default)",
+      "bindingApplied": true,
+      "tests": 3,
+      "evidence": "build-logs/pages-live-tests.log",
+      "scope": "Second publication applied the binding. Pages /health returns HTTP200 with ryadom-signaling version1; real WebSocket OPEN verified in Edge. Three published checks passed including cross-hostname duplicate rejection and bidirectional negotiation through one registry. This does not establish reachability from the remote laptop without VPN; no app endpoint or EXE changed."
+    },
+    "remotePagesNetworkWithoutVpn": {
+      "status": "failed",
+      "scope": "Owner corrected the initial success reply: neither Pages HTML nor HTTPS /health loads without VPN on the second laptop; initial HTML was apparently cached. With VPN the actual WebSocket check succeeds. HTTPS fallback on this Cloudflare hostname is therefore not an established solution. App endpoint was not changed and no rebuild was started."
+    },
+    "alwaysdataCandidate": {
+      "status": "passed",
+      "account": "ryadom-family",
+      "plan": "Free (1GB disk, 256MB RAM, 0.25 CPU)",
+      "url": "https://ryadom-family.alwaysdata.net",
+      "sourceSha256": "a9f54d6ca616da34ee98c6052ce0b4189ee57548384c613eb80199c7065e3341",
+      "scope": "Free hosting created by owner; explicit SSH key/deployment authorization received and key saved. Host fingerprint verified against dashboard. Eleven-file source archive verified on host; Node 24.22.1 and 108 locked dependencies installed, npm audit reported no known vulnerabilities. Site runs with 128MiB V8 heap and idle timeout 0. Published tests and Edge WebSocket OPEN passed; owner confirmed repeated remote check without VPN. App endpoint changed and native/browser builds completed; new full desktop session still pending."
+    },
+    "alwaysdataServerPreparation": {
+      "status": "passed",
+      "tests": 1,
+      "evidence": "build-logs/alwaysdata-local-tests.log",
+      "scope": "Standalone server uses hosting-provided IP/HOST and PORT; local Node 24 test passed on 127.0.0.1:9001 for duplicate ID, alias lookup, real sender and disabled public directory. Test process stopped afterward; no active app session interrupted."
+    },
+    "signalingRecheckBeforePages": {
+      "status": "passed",
+      "tests": 2,
+      "skipped": 1,
+      "evidence": "build-logs/pages-worker-network-tests.log",
+      "scope": "Existing published Worker registry/protocol passed outside sandbox network restrictions. Cross-hostname test skipped until Pages binding is deployed. Earlier restricted-network attempt timed out and did not test the published service."
+    },
+    "packagedEndpoint": {
+      "status": "passed",
+      "nativeDllSha256": "72b5151ddaac6852ec5d62b2568043403343fdcaa79feaecffef75c9dea3b06d",
+      "evidence": "build-logs/autostart-payload.json",
+      "scope": "C ABI and unchanged browser endpoints match signaling.json"
+    },
+    "portablePayload": {
+      "status": "passed",
+      "files": 91,
+      "evidence": "build-logs/autostart-payload.json",
+      "scope": "Every payload file and executable blob verified; C ABI inspected. Packaging integrity only; actual installation and service verification recorded separately in autostart-physical.json."
+    },
+    "webBuild": {
+      "status": "passed",
+      "evidence": "build-logs/history-web-ui-build.log",
+      "scope": "Current Flutter history grid/readable theme plus TypeScript runtime; shared TURN secret not embedded"
+    },
+    "buildDependencyRestore": {
+      "status": "workaround-applied",
+      "evidence": "build-logs/alwaysdata-plugins-restore-error.log",
+      "scope": "Old Dart pub advisory-cache null error in restricted network; used existing locked dependencies and plugin metadata, then Windows --no-pub build succeeded. SDK versions unchanged."
+    },
+    "deploymentKeyExclusion": {
+      "status": "passed",
+      "evidence": "build-logs/autostart-source-check.json",
+      "scope": "Current source archive includes Windows autostart and UI sources; matching source offer; private tools/configuration and deployment key material excluded"
+    },
+    "userReportedTurnSession": {
+      "status": "partial",
+      "evidence": "User report on 2026-11-14",
+      "scope": "Previous alwaysdata build connected to the physical second laptop and displayed TURN. User reported duplicate cursor and intermittent input after monitor changes/reconnect. Current fixes need physical recheck."
+    },
+    "sessionInteractionFixes": {
+      "status": "implemented-awaiting-physical-recheck",
+      "scope": "Previous cursor/input fixes retained; new v1 clients recover network loss for 5 minutes via ephemeral secret, manual close revokes, legacy keeps previous behavior. No active user app relaunched."
+    },
+    "nativeLayoutTests": {
+      "status": "passed",
+      "tests": 9,
+      "evidence": "build-logs/autostart-widgets.log",
+      "scope": "Autostart default-on checkbox and both changes; numeric history, layout, cursor/interaction tests retained"
+    },
+    "directMux": {
+      "status": "passed",
+      "tests": 1,
+      "evidence": "build-logs/p2p-mux-tests.log",
+      "scope": "Actual shared UDP sockets and WebRTC; fixed ports, numeric LAN aliases, pre-read login response order; not a router lease test"
+    },
+    "browserRecovery": {
+      "status": "passed",
+      "evidence": "build-logs/recovery-turn-smoke.json",
+      "initialMs": 9499,
+      "scope": "Real ExpressTURN to P2P; same authorized logical session; network recovery, revoked secret rejection, monitor, no terminal replay, 300000 bytes from checkpoint 100000, three recording fragments. Protocol host and in-memory file sinks, one PC; not physical Windows acceptance."
+    },
+    "p2pHelper": {
+      "status": "implemented-awaiting-physical-recheck",
+      "scope": "PCP/NAT-PMP/UPnP, actual socket, 3600s requested lease, renewal at actual lifetime/3 capped 1200s, deferred own-rule cleanup, Windows UDP rule with optional elevation. Real router failures/leases and >1 hour physical test pending."
+    },
+    "dartAnalysis": {
+      "status": "passed",
+      "evidence": "build-logs/history-final-native-analyze.log",
+      "scope": "Changed feature UI files: no issues; standard app theme path unchanged"
+    },
+    "installerPhysical": {
+      "status": "passed-local-scope",
+      "evidence": "build-logs/autostart-physical.json",
+      "scope": "Current corrected Setup installed three times sequentially with different autostart choices; installed runtime hashes, Running and original configuration verified"
+    },
+    "packageRuntimeName": {
+      "status": "passed",
+      "evidence": "build-logs/windows-package-name.json",
+      "scope": "Portable entry point Ryadom.exe matches Windows installer service and shortcut names; previous exit 9059 root cause fixed"
+    },
+    "portableToSetup": {
+      "status": "passed",
+      "evidence": [
+        "build-logs/migration-portable-auth.json",
+        "build-logs/migration-installed-auth.json",
+        "build-logs/migration-service-config.json"
+      ],
+      "scope": "Actual Windows host, same random test password accepted before/after Setup, signed identity and numeric ID unchanged, password storage/salt and settings compared; no input/file/terminal actions or recording"
+    },
+    "installedUpdatePreservesConfig": {
+      "status": "passed",
+      "evidence": "build-logs/autostart-config-preserved.json",
+      "scope": "Actual current Setup cases preserve public key, password storage, salt and host options; volatile numeric registration excluded"
+    },
+    "portableInstalledLaunch": {
+      "status": "passed-with-ui-limit",
+      "evidence": "build-logs/migration-installed-launch.json",
+      "scope": "Portable opens installed EXE; actual window accessibility reports ready and nine digits. Screenshot timed out, P2P panel button automation unavailable; no relaxed IPC checks"
+    },
+    "migrationDartAnalysis": {
+      "status": "passed-with-existing-info",
+      "evidence": "build-logs/migration-dart-analyze.log",
+      "scope": "P2P panel compiled in Windows release; zero errors/warnings, two existing brace-style info messages"
+    },
+    "autostart": {
+      "status": "passed-local-scope",
+      "evidence": [
+        "build-logs/autostart-physical.json",
+        "build-logs/autostart-physical-test.log",
+        "build-logs/autostart-config-preserved.json"
+      ],
+      "scope": "Actual API off/on without service stop or PID change. Sequential real Setup: unchecked, update preserves unchecked, checked. All 91 installed files match, identity/password/salt/host settings preserved, original Auto/tray/value 1 restored. No reboot or settings-page UI click claimed"
+    },
+    "autostartDartAnalysis": {
+      "status": "passed-with-existing-info",
+      "evidence": "build-logs/autostart-dart-analyze.log",
+      "errors": 0,
+      "warnings": 0,
+      "info": 6,
+      "scope": "Changed install/settings/new widget; existing SDK deprecations/style info retained"
+    },
+    "autostartFix": {
+      "status": "passed",
+      "scope": "Setup verifies the shortcut already copied before temporary-file cleanup; runtime settings stage their own shortcut. Real checked Setup no longer retries the removed temporary file"
+    }
+  },
+  "releaseGate": "acceptance.json",
+  "verifiedAt": "2026-11-15T15:00:27.092728+00:00"
+}

@@ -1,0 +1,86 @@
+name: Ryadom development builds
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  bridge:
+    uses: ./.github/workflows/bridge.yml
+  windows:
+    needs: bridge
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          submodules: recursive
+      - name: Apply pinned dependency patch
+        shell: pwsh
+        run: ./ryadom/prepare-submodule.ps1
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: bridge-artifact
+          path: .
+      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+        with:
+          toolchain: '1.75.0'
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12.10'
+      - uses: KyleMayes/install-llvm-action@ebc0426251bc40c7cd31162802432c68818ab8f0
+        with:
+          version: '15.0.6'
+      - uses: subosito/flutter-action@2783a3f08e1baf891508463f8c6653c258246225
+        with:
+          flutter-version: '3.24.5'
+      - uses: lukka/run-vcpkg@b1a0dd252f06b9e25b3c022a9a03bd7a427fb6a2
+        with:
+          vcpkgDirectory: C:\vcpkg
+          vcpkgGitCommitId: 9e593bb18ea69cc5095e012465dcd675a822ed0d
+      - name: Native libraries
+        shell: pwsh
+        run: |
+          & "$env:VCPKG_ROOT/vcpkg.exe" install --triplet x64-windows-static --x-install-root="$env:VCPKG_ROOT/installed"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Transport policy and DPAPI tests
+        shell: pwsh
+        run: cargo test --locked -p hbb_common --features ryadom-turn ryadom
+      - name: Build development EXEs
+        shell: pwsh
+        run: ./ryadom/build-windows.ps1
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: Ryadom-Windows-development
+          path: dist/development/*.exe
+          if-no-files-found: error
+  web:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          submodules: recursive
+      - uses: subosito/flutter-action@2783a3f08e1baf891508463f8c6653c258246225
+        with:
+          flutter-version: '3.24.5'
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24.22.1'
+      - name: Pin npm
+        run: npm install -g npm@11.6.2 --ignore-scripts --no-fund
+      - name: Build and test browser engine
+        shell: pwsh
+        run: ./ryadom/build-web.ps1
+      - name: Browser smoke test
+        working-directory: flutter/web/js
+        run: node scripts/browser-smoke.mjs
+      - name: Recovery and authorized direct handoff
+        shell: pwsh
+        run: |
+          npm ci --ignore-scripts --no-fund --prefix ryadom/signaling-service/peer-server
+          Push-Location flutter/web/js
+          node scripts/recovery-smoke.mjs
+          Pop-Location
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: Ryadom-Web-development
+          path: ryadom/ui/build/web
+          if-no-files-found: error

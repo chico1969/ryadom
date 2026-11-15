@@ -60,3 +60,37 @@ flutter/web/
 /third_party/libdrmtap/
 # Local git worktrees
 .worktrees/
+
+# Local Ryadom build tools, artifacts and owner-only configuration
+/.tools/
+/dist/
+/ryadom/build-logs/
+/ryadom/signaling-service/.wrangler/
+
+# The browser runtime is developed as part of this fork.
+!/flutter/web/
+!/flutter/web/**
+**/node_modules/
+/flutter/web/js/src/schema.json
+/flutter/web/ryadom.js
+/flutter/web/ryadom.js.map
+/flutter/web/ryadom.css
+/flutter/web/THIRD_PARTY_NOTICES.txt
+/ryadom/ui/.dart_tool/
+/ryadom/ui/build/
+/ryadom/ui/web/ryadom.js
+/ryadom/ui/web/ryadom.js.map
+/ryadom/ui/web/ryadom.css
+/ryadom/ui/web/THIRD_PARTY_NOTICES.txt
+!/ryadom/assets/ryadom.png
+!/ryadom/ui/web/favicon.png
+
+# Publication/signing credentials are local inputs, never source files.
+*.pfx
+*.p12
+*.key
+*.pem
+.dev.vars
+.dev.vars.*
+*.log
+*.local.json

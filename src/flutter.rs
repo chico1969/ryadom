@@ -2407,12 +2407,16 @@ pub(super) mod async_tasks {
     }
 
     pub fn query_onlines(ids: Vec<String>) -> ResultType<()> {
+        #[cfg(feature = "ryadom")]
+        { let _=ids;return Ok(()); }
+        #[cfg(not(feature = "ryadom"))]
         if let Some(tx) = TX_QUERY_ONLINES.lock().unwrap().as_ref() {
             // Ignore if the channel is full.
             let _ = tx.try_send(ids)?;
         } else {
             bail!("No tx_query_onlines");
         }
+        #[cfg(not(feature = "ryadom"))]
         Ok(())
     }
 

@@ -1,0 +1,814 @@
+diff --git a/Cargo.toml b/Cargo.toml
+index 9c4424a..33fb630 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -7,6 +7,9 @@ edition = "2018"
+ # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+ 
+ [features]
++direct-only = []
++ryadom-turn = ["direct-only", "webrtc"]
++ryadom-bundled-turn = ["ryadom-turn"]
+ default = []
+ webrtc = ["dep:webrtc"]
+ 
+diff --git a/src/config.rs b/src/config.rs
+index 9ee5cac..9604f90 100644
+--- a/src/config.rs
++++ b/src/config.rs
+@@ -747,6 +747,10 @@ impl Config {
+ 
+     fn load() -> Config {
+         let mut config = Config::load_::<Config>("");
++        #[cfg(all(windows, feature = "direct-only"))]
++        if let Err(err)=crate::ryadom_dpapi::open_identity(&mut config.key_pair) {
++            log::error!("Рядом: ключ устройства не удалось открыть: {}",err);
++        }
+         let mut store = false;
+         if let Err(err) = Self::validate_or_decrypt_permanent_password_storage(&mut config) {
+             log::error!("Failed to validate or decrypt permanent password storage: {err}");
+@@ -868,6 +872,13 @@ impl Config {
+                 encrypt_str_or_original(&config.id, PASSWORD_ENC_VERSION, ENCRYPT_MAX_LEN);
+         }
+         config.id = "".to_owned();
++        #[cfg(all(windows, feature = "direct-only"))]
++        {
++            config.key_pair.0=match crate::ryadom_dpapi::seal_machine(&config.key_pair.0,"Ryadom.device-key.v1") {
++                Ok(value)=>value,
++                Err(err)=>{log::error!("Рядом: конфигурация не сохранена, DPAPI недоступен: {}",err);return;}
++            };
++        }
+         Config::store_(&config, "");
+     }
+ 
+@@ -1130,6 +1141,25 @@ impl Config {
+         config.store();
+     }
+ 
++    #[cfg(feature = "direct-only")]
++    pub fn commit_ryadom_identity(id:&str,key_pair:KeyPair) -> crate::ResultType<()> {
++        {
++            let mut config=CONFIG.write().unwrap();
++            config.id=id.to_owned();
++            config.key_pair=key_pair.clone();
++            config.store();
++        }
++        let mut stored=Self::load_::<Config>("");
++        #[cfg(windows)]
++        {
++            if !crate::ryadom_dpapi::is_protected(&stored.key_pair.0) {crate::bail!("Device identity was not protected by Windows");}
++            crate::ryadom_dpapi::open_identity(&mut stored.key_pair)?;
++        }
++        let (stored_id,decrypted,_)=decrypt_str_or_original(&stored.enc_id,PASSWORD_ENC_VERSION);
++        if stored.key_pair!=key_pair || !decrypted || stored_id!=id {crate::bail!("Device identity could not be saved");}
++        Ok(())
++    }
++
+     pub fn set_nat_type(nat_type: i32) {
+         let mut config = CONFIG2.write().unwrap();
+         if nat_type == config.nat_type {
+@@ -1260,6 +1290,11 @@ impl Config {
+             return p.clone();
+         }
+         let mut config = Config::load_::<Config>("");
++        #[cfg(all(windows, feature = "direct-only"))]
++        if let Err(err)=crate::ryadom_dpapi::open_identity(&mut config.key_pair) {
++            log::error!("Рядом: личность устройства недоступна: {}",err);
++            return (Vec::new(),Vec::new());
++        }
+         if config.key_pair.0.is_empty() {
+             log::info!("Generated new keypair for id: {}", config.id);
+             let (pk, sk) = sign::gen_keypair();
+@@ -1291,7 +1326,12 @@ impl Config {
+         // Config::load_ must remain a raw conf load/deserialize path and must never
+         // call decrypt_* / symmetric_crypt (directly or indirectly), otherwise this
+         // can re-enter key loading and deadlock.
+-        let config = Config::load_::<Config>("");
++        let mut config = Config::load_::<Config>("");
++        #[cfg(all(windows, feature = "direct-only"))]
++        if let Err(err)=crate::ryadom_dpapi::open_identity(&mut config.key_pair) {
++            log::error!("Рядом: личность устройства недоступна: {}",err);
++            return None;
++        }
+         if !config.key_pair.0.is_empty() {
+             *lock = Some(config.key_pair.clone());
+             Some(config.key_pair)
+@@ -1783,9 +1823,20 @@ impl PeerConfig {
+             Ok(config) => {
+                 let mut config: PeerConfig = config;
+                 let mut store = false;
++                #[cfg(all(windows, feature = "direct-only"))]
++                let dpapi_storage=crate::ryadom_dpapi::is_protected(&config.password);
+                 let (password, _, store2) =
+                     decrypt_vec_or_original(&config.password, PASSWORD_ENC_VERSION);
+                 config.password = password;
++                #[cfg(all(windows, feature = "direct-only"))]
++                if crate::ryadom_dpapi::is_protected(&config.password) {
++                    config.password = match crate::ryadom_dpapi::open(&config.password,id) {
++                        Ok(value) => value,
++                        Err(err) => { log::error!("Рядом: не удалось открыть сохранённый пароль: {}",err); Vec::new() }
++                    };
++                }
++                #[cfg(all(windows, feature = "direct-only"))]
++                let store2=if dpapi_storage {false}else{store2||!config.password.is_empty()};
+                 store = store || store2;
+                 for opt in ["rdp_password", "os-username", "os-password"] {
+                     if let Some(v) = config.options.get_mut(opt) {
+@@ -1821,8 +1872,18 @@ impl PeerConfig {
+ 
+     fn store_(&self, id: &str) {
+         let mut config = self.clone();
++        #[cfg(all(windows, feature = "direct-only"))]
++        {
++            config.password = match crate::ryadom_dpapi::seal(&config.password,id) {
++                Ok(value) => value,
++                Err(err) => { log::error!("Рядом: пароль не сохранён, DPAPI недоступен: {}",err); Vec::new() }
++            };
++        }
++        #[cfg(not(all(windows, feature = "direct-only")))]
++        {
+         config.password =
+             encrypt_vec_or_original(&config.password, PASSWORD_ENC_VERSION, ENCRYPT_MAX_LEN);
++        }
+         for opt in ["rdp_password", "os-username", "os-password"] {
+             if let Some(v) = config.options.get_mut(opt) {
+                 *v = encrypt_str_or_original(v, PASSWORD_ENC_VERSION, ENCRYPT_MAX_LEN)
+diff --git a/src/lib.rs b/src/lib.rs
+index 5039545..dae4498 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -36,6 +36,10 @@ pub use tokio_socks;
+ pub use tokio_socks::IntoTargetAddr;
+ pub use tokio_socks::TargetAddr;
+ pub mod password_security;
++#[cfg(all(windows, feature = "direct-only"))]
++pub mod ryadom_dpapi;
++#[cfg(feature = "ryadom-turn")]
++pub mod ryadom_network;
+ pub use chrono;
+ pub use directories_next;
+ pub use libc;
+diff --git a/src/webrtc.rs b/src/webrtc.rs
+index f33f914..a891cc1 100644
+--- a/src/webrtc.rs
++++ b/src/webrtc.rs
+@@ -103,6 +103,28 @@ pub struct WebRTCStream {
+     // Shared by every clone, the `SESSIONS` entry included, because the receive path runs off a
+     // clone and the bound is about the pc, not about one handle.
+     max_recv_message: Arc<AtomicUsize>,
++    ryadom_mapping: Option<Arc<RyadomMappingUse>>,
++}
++
++pub type RyadomUdpMux = Arc<dyn webrtc::ice::udp_mux::UDPMux + Send + Sync>;
++pub struct RyadomMapped {
++    pub external_ip: String,
++    pub local_ip: Ipv4Addr,
++    pub mux: RyadomUdpMux,
++    pub users: AtomicUsize,
++}
++struct RyadomMappingUse(Arc<RyadomMapped>);
++impl Drop for RyadomMappingUse {
++    fn drop(&mut self){self.0.users.fetch_sub(1,Ordering::SeqCst);}
++}
++#[derive(Clone)]
++pub struct RyadomIceOptions {
++    pub allow_turn: bool,
++    pub mapped: Option<Arc<RyadomMapped>>,
++}
++pub fn ryadom_udp_mux(socket:tokio::net::UdpSocket)->RyadomUdpMux {
++    use webrtc::ice::udp_mux::{UDPMuxDefault,UDPMuxParams};
++    UDPMuxDefault::new(UDPMuxParams::new(socket))
+ }
+ 
+ /// Whether a pc `new_inner` built is still wanted, shared by every `NewStreamHandoff` handed out
+@@ -126,6 +148,9 @@ struct HandoffState {
+ 
+ #[derive(Default)]
+ struct RecvState {
++    // A verified replacement channel may already have consumed its login response.
++    // Only the local handoff path can prepend these bounded protocol messages.
++    initial: std::collections::VecDeque<BytesMut>,
+     // Accumulated payload of the logical message currently being reassembled. Only multi-fragment
+     // messages reach it; a message that arrives whole is split straight out of `scratch`.
+     acc: BytesMut,
+@@ -153,6 +178,26 @@ const SCRATCH_REFILL: usize = 4 * RECV_BUF_SIZE;
+ const FRAG_MORE: u8 = 1;
+ /// Fragment header byte: final (or only) fragment of a logical message.
+ const FRAG_END: u8 = 0;
++
++#[cfg(any(feature = "direct-only", test))]
++fn direct_pair_status(description:&str)->Option<bool> {
++    let types:Vec<_>=description.split(" <-> ").filter_map(|side|side.split_whitespace().nth(2)).collect();
++    if types.len()!=2 { return None; }
++    if types.iter().any(|typ|*typ=="relay") { return Some(true); }
++    types.iter().all(|typ|matches!(*typ,"host"|"srflx"|"prflx")).then_some(false)
++}
++
++#[cfg(test)]
++mod ryadom_direct_tests {
++    use super::direct_pair_status;
++    #[test]
++    fn unknown_pair_does_not_claim_direct_connectivity() {
++        assert_eq!(direct_pair_status("(local) udp host 10.0.0.1:5000 <-> (remote) udp srflx 10.0.0.2:5000"),Some(false));
++        assert_eq!(direct_pair_status("(local) udp host 10.0.0.1:5000 <-> (remote) udp relay 10.0.0.2:5000"),Some(true));
++        assert_eq!(direct_pair_status("unrecognized display"),None);
++        assert_eq!(direct_pair_status("udp4 addr new-type <-> udp4 addr host"),None);
++    }
++}
+ /// Largest logical message this transport will send or reassemble, and the memory an
+ /// unauthenticated peer can make a receiver hold. Kept at parity with TCP on purpose: one session
+ /// moves between both paths, so a transport-specific ceiling would kill it on the other one.
+@@ -254,11 +299,23 @@ impl Clone for WebRTCStream {
+             rx_probe: self.rx_probe.clone(),
+             disconnected: self.disconnected.clone(),
+             max_recv_message: self.max_recv_message.clone(),
++            ryadom_mapping: self.ryadom_mapping.clone(),
+         }
+     }
+ }
+ 
+ impl WebRTCStream {
++    /// Run the Ryadom socket lease owner on the existing process-lifetime I/O runtime.
++    pub fn ryadom_spawn(task:impl std::future::Future<Output=()>+Send+'static)->ResultType<()> {
++        let rt=WEBRTC_RT.as_ref().ok_or_else(||anyhow::anyhow!("WebRTC I/O runtime unavailable"))?;
++        rt.spawn(task);Ok(())
++    }
++    pub async fn new_ryadom(remote_endpoint:&str, ms_timeout:u64, profile:RyadomIceOptions)->ResultType<Self> {
++        let rt=WEBRTC_RT.as_ref().ok_or_else(||anyhow::anyhow!("WebRTC I/O runtime unavailable"))?;
++        rt.spawn(Self::new_inner(remote_endpoint.into(),false,ms_timeout,Some(profile))).await
++            .map_err(|e|anyhow::anyhow!("WebRTC setup task failed: {e}"))??.into_inner()
++            .ok_or_else(||anyhow::anyhow!("WebRTC setup handoff was empty"))
++    }
+     #[inline]
+     fn get_remote_offer(endpoint: &str) -> ResultType<String> {
+         // Ensure the endpoint starts with the "webrtc://" prefix
+@@ -506,6 +563,18 @@ impl WebRTCStream {
+ 
+     #[inline]
+     fn get_ice_servers() -> Vec<RTCIceServer> {
++        #[cfg(all(feature = "direct-only", not(feature = "ryadom-turn")))]
++        return vec![RTCIceServer {
++            urls: DEFAULT_ICE_SERVERS.iter().map(|s| s.to_string()).collect(),
++            ..Default::default()
++        }];
++        #[cfg(feature = "ryadom-turn")]
++        {
++            let mut servers = Self::parse_ice_servers("");
++            servers.extend(crate::ryadom_network::turn_servers());
++            return servers;
++        }
++        #[cfg(not(feature = "direct-only"))]
+         Self::parse_ice_servers(&config::Config::get_option(
+             config::keys::OPTION_ICE_SERVERS,
+         ))
+@@ -578,7 +647,7 @@ impl WebRTCStream {
+             return Err(anyhow::anyhow!("WebRTC I/O runtime unavailable"));
+         };
+         let remote_endpoint = remote_endpoint.to_owned();
+-        rt.spawn(Self::new_inner(remote_endpoint, force_relay, ms_timeout))
++        rt.spawn(Self::new_inner(remote_endpoint, force_relay, ms_timeout, None))
+             .await
+             .map_err(|err| anyhow::anyhow!("WebRTC setup task failed: {}", err))??
+             .into_inner()
+@@ -589,6 +658,7 @@ impl WebRTCStream {
+         remote_endpoint: String,
+         force_relay: bool,
+         ms_timeout: u64,
++        ryadom: Option<RyadomIceOptions>,
+     ) -> ResultType<NewStreamHandoff> {
+         // The endpoint contains a Base64-encoded SDP with host addresses and live ICE
+         // credentials. Log only its size so debug logs cannot disclose that information.
+@@ -604,7 +674,7 @@ impl WebRTCStream {
+ 
+         let mut key = Self::get_key_for_sdp_json(&remote_offer)?;
+         let start_local_offer = remote_offer.is_empty();
+-        if !key.is_empty() {
++        if !key.is_empty() && ryadom.is_none() {
+             // Claim inside the lock: `close_if_abandoned` commits under it too, so this hit
+             // either registers in time to call that close off, or finds the entry already rejected.
+             let cached = {
+@@ -646,6 +716,18 @@ impl WebRTCStream {
+             IpAddr::V6(v6) => v6.segments()[0] & 0xffc0 != 0xfe80,
+             IpAddr::V4(_) => true,
+         }));
++        let mapping_use=ryadom.as_ref().and_then(|p|p.mapped.as_ref()).map(|m|{
++            m.users.fetch_add(1,Ordering::SeqCst);Arc::new(RyadomMappingUse(m.clone()))
++        });
++        if let Some(mapping)=ryadom.as_ref().and_then(|p|p.mapped.as_ref()) {
++            let local=mapping.local_ip;
++            s.set_ip_filter(Box::new(move|ip|ip==IpAddr::V4(local)));
++            s.set_udp_network(webrtc::ice::udp_network::UDPNetwork::Muxed(mapping.mux.clone()));
++            s.set_network_types(vec![webrtc::ice::network_type::NetworkType::Udp4]);
++            // The pinned ICE implementation skips srflx gathering on UDP muxes.
++            // Host mapping uses the leased socket; a private alias below preserves LAN access.
++            s.set_nat_1to1_ips(vec![mapping.external_ip.clone()],RTCIceCandidateType::Host);
++        }
+ 
+         // KCP's nc=1 profile by default, with the same opt-in to a congestion window as
+         // `allow-kcp-congestion-control`, for the reason given at `get_kcp_cc_enabled`. Set per
+@@ -657,7 +739,15 @@ impl WebRTCStream {
+ 
+         // Prepare the configuration, get ICE servers from config
+         let config = RTCConfiguration {
+-            ice_servers: Self::get_ice_servers(),
++            ice_servers: {
++                let mut servers=Self::get_ice_servers();
++                if let Some(profile)=&ryadom {
++                    if !profile.allow_turn { for server in &mut servers {server.urls.retain(|u|!u.starts_with("turn:")&&!u.starts_with("turns:"));} }
++                    if profile.mapped.is_some() { for server in &mut servers {server.urls.retain(|u|!u.starts_with("stun:")&&!u.starts_with("stuns:"));} }
++                    servers.retain(|s|!s.urls.is_empty());
++                }
++                servers
++            },
+             ice_transport_policy: if force_relay {
+                 RTCIceTransportPolicy::Relay
+             } else {
+@@ -677,6 +767,7 @@ impl WebRTCStream {
+         // there rather than with the session; the terminal-state handler below drops this closure
+         // for a pc that dies before it gets that far.
+         let mut local_ice_tx = Some(ice_tx);
++        let mapped_local=ryadom.as_ref().and_then(|p|p.mapped.as_ref()).map(|m|m.local_ip);
+         pc.on_ice_candidate(Box::new(move |candidate| {
+             let Some(candidate) = candidate else {
+                 local_ice_tx = None;
+@@ -687,13 +778,23 @@ impl WebRTCStream {
+             };
+             Box::pin(async move {
+                 match candidate.to_json() {
+-                    Ok(candidate) => match serde_json::to_string(&candidate) {
++                    Ok(candidate) => {
++                      if let Some(local)=mapped_local {
++                        let mut alias=candidate.clone();
++                        let mut fields:Vec<String>=alias.candidate.split_whitespace().map(str::to_owned).collect();
++                        if fields.len()>=8&&fields[7]=="host" {
++                            fields[0].push_str("L");fields[4]=local.to_string();alias.candidate=fields.join(" ");
++                            if let Ok(json)=serde_json::to_string(&alias){let _=local_ice_tx.send(json);}
++                        }
++                      }
++                      match serde_json::to_string(&candidate) {
+                         Ok(candidate_json) => {
+                             let _ = local_ice_tx.send(candidate_json);
+                         }
+                         Err(err) => {
+                             log::warn!("failed to serialize local ICE candidate: {}", err);
+                         }
++                      }
+                     },
+                     Err(err) => {
+                         log::warn!("failed to convert local ICE candidate to JSON: {}", err);
+@@ -906,6 +1007,7 @@ impl WebRTCStream {
+             rx_probe: RxProbe::new(),
+             disconnected,
+             max_recv_message: Arc::new(AtomicUsize::new(MAX_RECV_MESSAGE)),
++            ryadom_mapping: mapping_use,
+         };
+         // Insert into the session cache, but never `await pc.close()` while holding this lock:
+         // `close()` fires the peer-connection-state handler inline, which itself locks SESSIONS,
+@@ -1075,11 +1177,15 @@ impl WebRTCStream {
+         }
+         let dtls = self.pc.sctp().transport();
+         let pair = dtls.ice_transport().get_selected_candidate_pair().await?;
++        #[cfg(feature = "direct-only")]
++        return direct_pair_status(&pair.to_string());
+ 
+         // Not the stats report's `nominated` flag: webrtc-ice never clears it per checklist entry,
+         // so after a pair switch several entries carry it and map order decides the answer.
+         // 0.13 keeps the candidates private, so read the types out of `Display` by position.
++        #[cfg(not(feature = "direct-only"))]
+         let relay = RTCIceCandidateType::Relay.to_string();
++        #[cfg(not(feature = "direct-only"))]
+         Some(
+             pair.to_string()
+                 .split(" <-> ")
+@@ -1422,8 +1528,19 @@ impl WebRTCStream {
+         Ok(())
+     }
+ 
++    pub async fn ryadom_prepend(&mut self, messages: Vec<BytesMut>) -> ResultType<()> {
++        if messages.len() > 32 || messages.iter().map(|m|m.len()).sum::<usize>() > 1024*1024 {
++            anyhow::bail!("Replacement channel sent too much data before login");
++        }
++        self.recv_state.lock().await.initial.extend(messages);
++        Ok(())
++    }
++
+     #[inline]
+     pub async fn next(&mut self) -> Option<Result<BytesMut, Error>> {
++        if let Some(message) = self.recv_state.lock().await.initial.pop_front() {
++            return Some(Ok(message));
++        }
+         if let Err(err) = self.wait_for_connect_result().await {
+             self.close_detached();
+             return Some(Err(Error::new(ErrorKind::Other, err.to_string())));
+@@ -1442,7 +1559,7 @@ impl WebRTCStream {
+         // until a packet arrives — is a state the design does not permit anyway.
+         let mut st = self.recv_state.lock().await;
+         loop {
+-            let RecvState { acc, scratch } = &mut *st;
++            let RecvState { acc, scratch, .. } = &mut *st;
+             if scratch.len() < RECV_BUF_SIZE {
+                 scratch.resize(SCRATCH_REFILL, 0);
+             }
+@@ -2024,9 +2141,12 @@ IHR5cCBzcmZseCByYWRkciAwLjAuMC4wIHJwb3J0IDY0MDA4XHJcbmE9ZW5kLW9mLWNhbmRpZGF0ZXNc
+     }
+ 
+     async fn connect_loopback() -> (WebRTCStream, WebRTCStream) {
+-        let mut offerer = WebRTCStream::new("", false, 20000).await.unwrap();
++        connect_loopback_profiles(None,None).await
++    }
++    async fn connect_loopback_profiles(left:Option<super::RyadomIceOptions>,right:Option<super::RyadomIceOptions>) -> (WebRTCStream, WebRTCStream) {
++        let mut offerer = match left {Some(p)=>WebRTCStream::new_ryadom("",20000,p).await.unwrap(),None=>WebRTCStream::new("",false,20000).await.unwrap()};
+         let offer = offerer.local_endpoint().to_owned();
+-        let answerer = WebRTCStream::new(&offer, false, 20000).await.unwrap();
++        let answerer = match right {Some(p)=>WebRTCStream::new_ryadom(&offer,20000,p).await.unwrap(),None=>WebRTCStream::new(&offer,false,20000).await.unwrap()};
+         let answer = answerer.local_endpoint().to_owned();
+         offerer.set_remote_endpoint(&answer).await.unwrap();
+ 
+@@ -2052,6 +2172,34 @@ IHR5cCBzcmZseCByYWRkciAwLjAuMC4wIHJwb3J0IDY0MDA4XHJcbmE9ZW5kLW9mLWNhbmRpZGF0ZXNc
+         (offerer, answerer)
+     }
+ 
++    #[tokio::test]
++    async fn ryadom_leased_mux_keeps_port_lan_and_handoff_response() {
++        let route=std::net::UdpSocket::bind("0.0.0.0:0").unwrap();route.connect("1.1.1.1:3478").unwrap();
++        let local=match route.local_addr().unwrap().ip(){std::net::IpAddr::V4(ip)=>ip,_=>panic!("IPv4 test route")};
++        let mut mappings=Vec::new();let mut ports=Vec::new();
++        for external in ["203.0.113.1","203.0.113.2"]{
++            let socket=tokio::net::UdpSocket::bind((local,0)).await.unwrap();ports.push(socket.local_addr().unwrap().port());
++            mappings.push(Arc::new(super::RyadomMapped{external_ip:external.into(),local_ip:local,mux:super::ryadom_udp_mux(socket),users:0.into()}));
++        }
++        let profile=|i:usize|super::RyadomIceOptions{allow_turn:false,mapped:Some(mappings[i].clone())};
++        let (mut left,mut right)=connect_loopback_profiles(Some(profile(0)),Some(profile(1))).await;
++        assert_eq!(left.is_relayed().await,Some(false));
++        assert!(left.pc.get_configuration().await.ice_servers.is_empty());
++        left.ryadom_prepend(vec![BytesMut::from(&b"verified-login"[..])]).await.unwrap();
++        right.send_raw(b"next-frame".to_vec()).await.unwrap();
++        assert_eq!(&left.next_timeout(2000).await.unwrap().unwrap()[..],b"verified-login");
++        assert_eq!(&left.next_timeout(2000).await.unwrap().unwrap()[..],b"next-frame");
++        assert!(left.ryadom_prepend(vec![BytesMut::zeroed(1024*1024+1)]).await.is_err());
++        for (stream,port) in [(&left,ports[0]),(&right,ports[1])]{
++            let text=stream.pc.local_description().await.unwrap().sdp;
++            assert!(text.contains(&format!(" {port} typ host")),"ICE must use the leased socket");
++        }
++        left.close().await;right.close().await;
++        let mut again=WebRTCStream::new_ryadom("",2000,profile(0)).await.unwrap();
++        assert!(again.take_local_ice_rx().is_some());again.close().await;
++        for m in mappings{m.mux.close().await.unwrap();}
++    }
++
+     // next()'s teardown must not be cancellable: an awaited close that loses the select! race
+     // against a consumer's timer strands the pc (is_closed already latched) and its SESSIONS
+     // entry. `close_detached` is non-async, so what needs proving is that the handoff completes.
+@@ -2539,7 +2687,7 @@ IHR5cCBzcmZseCByYWRkciAwLjAuMC4wIHJwb3J0IDY0MDA4XHJcbmE9ZW5kLW9mLWNhbmRpZGF0ZXNc
+         let builder = WEBRTC_RT
+             .as_ref()
+             .expect("WebRTC I/O runtime")
+-            .spawn(WebRTCStream::new_inner(String::new(), false, 20000))
++            .spawn(WebRTCStream::new_inner(String::new(), false, 20000, None))
+             .await
+             .expect("setup task")
+             .expect("offerer builds");
+@@ -2579,7 +2727,7 @@ IHR5cCBzcmZseCByYWRkciAwLjAuMC4wIHJwb3J0IDY0MDA4XHJcbmE9ZW5kLW9mLWNhbmRpZGF0ZXNc
+         let builder = WEBRTC_RT
+             .as_ref()
+             .expect("WebRTC I/O runtime")
+-            .spawn(WebRTCStream::new_inner(String::new(), false, 20000))
++            .spawn(WebRTCStream::new_inner(String::new(), false, 20000, None))
+             .await
+             .expect("setup task")
+             .expect("offerer builds");
+diff --git a/src/ryadom_dpapi.rs b/src/ryadom_dpapi.rs
+new file mode 100644
+--- /dev/null
++++ b/src/ryadom_dpapi.rs
+@@ -0,0 +1,140 @@
++use std::{convert::TryFrom, ffi::c_void, io, ptr};
++
++const PREFIX: &[u8] = b"RYADOM-DPAPI-1\0";
++#[repr(C)]
++struct Blob {
++    length: u32,
++    data: *mut u8,
++}
++#[link(name = "crypt32")]
++extern "system" {
++    fn CryptProtectData(
++        input: *const Blob,
++        description: *const u16,
++        entropy: *const Blob,
++        reserved: *mut c_void,
++        prompt: *mut c_void,
++        flags: u32,
++        output: *mut Blob,
++    ) -> i32;
++    fn CryptUnprotectData(
++        input: *const Blob,
++        description: *mut *mut u16,
++        entropy: *const Blob,
++        reserved: *mut c_void,
++        prompt: *mut c_void,
++        flags: u32,
++        output: *mut Blob,
++    ) -> i32;
++}
++#[link(name = "kernel32")]
++extern "system" {
++    fn LocalFree(memory: *mut c_void) -> *mut c_void;
++}
++
++struct Output(Blob);
++impl Drop for Output {
++    fn drop(&mut self) {
++        if !self.0.data.is_null() {
++            unsafe {
++                LocalFree(self.0.data.cast());
++            }
++        }
++    }
++}
++
++fn transform(data: &[u8], peer: &str, protect: bool, machine: bool) -> io::Result<Vec<u8>> {
++    let length = u32::try_from(data.len())
++        .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "Credential too large"))?;
++    let input = Blob {
++        length,
++        data: data.as_ptr() as *mut u8,
++    };
++    let entropy = Blob {
++        length: peer.len() as u32,
++        data: peer.as_ptr() as *mut u8,
++    };
++    let mut out = Output(Blob {
++        length: 0,
++        data: ptr::null_mut(),
++    });
++    // Both APIs allocate the output with LocalAlloc. Output owns it on every return path.
++    let ok = unsafe {
++        if protect {
++            CryptProtectData(
++                &input,
++                ptr::null(),
++                &entropy,
++                ptr::null_mut(),
++                ptr::null_mut(),
++                if machine { 5 } else { 1 },
++                &mut out.0,
++            )
++        } else {
++            CryptUnprotectData(
++                &input,
++                ptr::null_mut(),
++                &entropy,
++                ptr::null_mut(),
++                ptr::null_mut(),
++                1,
++                &mut out.0,
++            )
++        }
++    };
++    if ok == 0 {
++        return Err(io::Error::last_os_error());
++    }
++    if out.0.data.is_null() || out.0.length > 1024 * 1024 {
++        return Err(io::Error::new(
++            io::ErrorKind::InvalidData,
++            "Invalid DPAPI output",
++        ));
++    }
++    Ok(unsafe { std::slice::from_raw_parts(out.0.data, out.0.length as usize) }.to_vec())
++}
++pub fn seal(data: &[u8], peer: &str) -> io::Result<Vec<u8>> {
++    if data.is_empty() {
++        return Ok(Vec::new());
++    }
++    let mut result = PREFIX.to_vec();
++    result.extend(transform(data, peer, true, false)?);
++    Ok(result)
++}
++pub fn is_protected(data: &[u8]) -> bool {
++    data.starts_with(PREFIX)
++}
++pub fn open(data: &[u8], peer: &str) -> io::Result<Vec<u8>> {
++    let encrypted = data
++        .strip_prefix(PREFIX)
++        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "Invalid credential format"))?;
++    transform(encrypted, peer, false, false)
++}
++
++pub fn seal_machine(data: &[u8], context: &str) -> io::Result<Vec<u8>> {
++    if data.is_empty() || is_protected(data) {
++        return Ok(data.to_vec());
++    }
++    let mut result = PREFIX.to_vec();
++    result.extend(transform(data, context, true, true)?);
++    Ok(result)
++}
++
++pub fn open_identity(pair: &mut (Vec<u8>, Vec<u8>)) -> io::Result<()> {
++    if is_protected(&pair.0) {
++        pair.0 = open(&pair.0, "Ryadom.device-key.v1")?;
++    }
++    Ok(())
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++    #[test]
++    fn password_is_bound_to_user_and_peer() {
++        let data = seal(b"salted-password-hash", "peer-a").unwrap();
++        assert!(!data.windows(20).any(|v| v == b"salted-password-hash"));
++        assert_eq!(open(&data, "peer-a").unwrap(), b"salted-password-hash");
++        assert!(open(&data, "peer-b").is_err());
++    }
++}
+diff --git a/src/ryadom_network.rs b/src/ryadom_network.rs
+new file mode 100644
+--- /dev/null
++++ b/src/ryadom_network.rs
+@@ -0,0 +1,185 @@
++use crate::{anyhow::anyhow, bail, ResultType};
++use serde_derive::Deserialize;
++use webrtc::{ice::url::Url, ice_transport::ice_server::RTCIceServer};
++
++#[derive(Deserialize)]
++#[serde(deny_unknown_fields)]
++struct TurnServer {
++    urls: Vec<String>,
++    username: String,
++    credential: String,
++}
++
++pub fn parse_turn_servers(raw: &str) -> ResultType<Vec<RTCIceServer>> {
++    if raw.len() > 16 * 1024 {
++        bail!("Конфигурация TURN слишком велика");
++    }
++    if raw.trim().is_empty() {
++        return Ok(Vec::new());
++    }
++    let servers: Vec<TurnServer> = serde_json::from_str(raw)?;
++    if servers.len() > 8 {
++        bail!("Слишком много серверов TURN");
++    }
++    servers
++        .into_iter()
++        .map(|server| {
++            if server.urls.is_empty()
++                || server.urls.len() > 8
++                || server.username.is_empty()
++                || server.username.len() > 256
++                || server.credential.is_empty()
++                || server.credential.len() > 1024
++            {
++                bail!("Некорректные параметры TURN");
++            }
++            for url in &server.urls {
++                if url.len() > 1024 || !(url.starts_with("turn:") || url.starts_with("turns:")) {
++                    bail!("Ожидается адрес TURN");
++                }
++                Url::parse_url(url).map_err(|_| anyhow!("Некорректный адрес TURN"))?;
++            }
++            Ok(RTCIceServer {
++                urls: server.urls,
++                username: server.username,
++                credential: server.credential,
++            })
++        })
++        .collect()
++}
++
++pub const OWNER_TURN_OPTION: &str = "ryadom-owner-turn-dpapi-v1";
++pub const TURN_DISABLED_OPTION: &str = "ryadom-turn-disabled";
++const CONTEXT: &str = "Ryadom.TURN.owner.v1";
++
++#[cfg(feature = "ryadom-bundled-turn")]
++mod bundled {
++    include!(env!("RYADOM_TURN_BUNDLE_SOURCE"));
++    pub(super) fn servers(
++    ) -> crate::ResultType<Vec<webrtc::ice_transport::ice_server::RTCIceServer>> {
++        use crate::{anyhow::anyhow, sodiumoxide::crypto::secretbox};
++        let key =
++            secretbox::Key::from_slice(KEY).ok_or_else(|| anyhow!("Некорректный тестовый ключ"))?;
++        let nonce = secretbox::Nonce::from_slice(NONCE)
++            .ok_or_else(|| anyhow!("Некорректная тестовая конфигурация"))?;
++        let raw = secretbox::open(SEALED, &nonce, &key)
++            .map_err(|_| anyhow!("Не открыта тестовая конфигурация TURN"))?;
++        super::parse_turn_servers(std::str::from_utf8(&raw)?)
++    }
++}
++
++pub fn bundled_test_build() -> bool {
++    cfg!(feature = "ryadom-bundled-turn")
++}
++
++#[cfg(windows)]
++pub fn protect_owner_config(raw: &str) -> ResultType<String> {
++    use base64::{engine::general_purpose::STANDARD, Engine};
++    let servers = parse_turn_servers(raw)?;
++    if servers.is_empty() {
++        return Ok(String::new());
++    }
++    Ok(STANDARD.encode(crate::ryadom_dpapi::seal(raw.as_bytes(), CONTEXT)?))
++}
++
++#[cfg(windows)]
++fn load_owner_config() -> ResultType<Vec<RTCIceServer>> {
++    use base64::{engine::general_purpose::STANDARD, Engine};
++    let protected = crate::config::Config::get_option(OWNER_TURN_OPTION);
++    if protected.is_empty() {
++        return Ok(Vec::new());
++    }
++    let raw = crate::ryadom_dpapi::open(&STANDARD.decode(protected)?, CONTEXT)?;
++    parse_turn_servers(std::str::from_utf8(&raw)?)
++}
++
++pub fn turn_servers() -> Vec<RTCIceServer> {
++    if crate::config::Config::get_option(TURN_DISABLED_OPTION) == "Y" {
++        return Vec::new();
++    }
++    #[cfg(windows)]
++    let owner = match load_owner_config() {
++        Ok(servers) => servers,
++        Err(_) => {
++            crate::throttled_log!(
++                std::time::Duration::from_secs(60),
++                warn,
++                "Рядом: не удалось открыть личную настройку TURN; локальный резерв отключён"
++            );
++            Vec::new()
++        }
++    };
++    #[cfg(not(windows))]
++    let owner = Vec::new();
++    if !owner.is_empty() {
++        return owner;
++    }
++    #[cfg(feature = "ryadom-bundled-turn")]
++    match bundled::servers() {
++        Ok(servers) => return servers,
++        Err(_) => crate::throttled_log!(
++            std::time::Duration::from_secs(60),
++            warn,
++            "Рядом: тестовый TURN не настроен корректно"
++        ),
++    }
++    Vec::new()
++}
++
++pub fn relay_allowed() -> bool {
++    true
++}
++
++pub fn check_transport(relayed: Option<bool>, allow_relay: bool) -> ResultType<()> {
++    match relayed {
++        Some(false) => Ok(()),
++        Some(true) if allow_relay => Ok(()),
++        Some(true) => Err(anyhow!("Резервный TURN не настроен")),
++        None => Err(anyhow!("Не удалось подтвердить выбранный транспорт")),
++    }
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++    #[test]
++    fn ryadom_turn_configuration_and_transport_policy() {
++        let raw = r#"[{"urls":["turn:relay.example.com:80?transport=tcp","turns:relay.example.com:443?transport=tcp"],"username":"test","credential":"test"}]"#;
++        assert_eq!(parse_turn_servers(raw).unwrap()[0].urls.len(), 2);
++        assert!(parse_turn_servers(&raw.replace("turn:relay", "https:relay")).is_err());
++        assert!(
++            parse_turn_servers(&raw.replace("\"credential\":\"test\"", "\"apiKey\":\"test\""))
++                .is_err()
++        );
++        assert!(parse_turn_servers("").unwrap().is_empty());
++        assert!(check_transport(Some(false), false).is_ok());
++        assert!(check_transport(Some(true), false).is_err());
++        assert!(check_transport(Some(true), true).is_ok());
++        assert!(check_transport(None, true).is_err());
++    }
++
++    #[cfg(windows)]
++    #[test]
++    fn ryadom_owner_turn_is_protected_for_local_user() {
++        use base64::{engine::general_purpose::STANDARD, Engine};
++        let raw = r#"[{"urls":["turn:relay.example.com:3478"],"username":"test","credential":"private-test-password"}]"#;
++        let encrypted = STANDARD.decode(protect_owner_config(raw).unwrap()).unwrap();
++        assert!(!encrypted
++            .windows(21)
++            .any(|window| window == b"private-test-password"));
++        assert_eq!(
++            crate::ryadom_dpapi::open(&encrypted, CONTEXT).unwrap(),
++            raw.as_bytes()
++        );
++        assert!(crate::ryadom_dpapi::open(&encrypted, "another-purpose").is_err());
++        assert_eq!(protect_owner_config("[]").unwrap(), "");
++    }
++    #[cfg(feature = "ryadom-bundled-turn")]
++    #[test]
++    fn ryadom_bundled_test_turn_opens_valid_configuration() {
++        crate::sodiumoxide::init().unwrap();
++        let servers = bundled::servers().unwrap();
++        assert!(!servers.is_empty());
++        assert!(servers.iter().all(|server| !server.credential.is_empty()));
++    }
++}

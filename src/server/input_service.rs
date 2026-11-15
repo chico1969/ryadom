@@ -951,6 +951,15 @@ pub fn fix_key_down_timeout_at_exit() {
     log::info!("fix_key_down_timeout_at_exit");
 }
 
+#[cfg(feature = "ryadom")]
+pub fn release_ryadom_input() {
+    fix_key_down_timeout(true);
+    let mut en = ENIGO.lock().unwrap();
+    for button in [enigo::MouseButton::Left, enigo::MouseButton::Right, enigo::MouseButton::Middle] {
+        en.mouse_up(button);
+    }
+}
+
 #[inline]
 #[cfg(target_os = "linux")]
 pub fn clear_remapped_keycode() {

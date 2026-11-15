@@ -1,0 +1,13 @@
+Рядом — открытый производный проект RustDesk 1.5.3.
+Исходный проект: https://github.com/rustdesk/rustdesk
+Закреплённый коммит: 95cca3f661f635b3cc85c04935fe8d96d8f432ef
+Лицензия исходного проекта и изменений: GNU AGPL version 3, см. ../LICENCE.
+Авторские уведомления исходного проекта сохранены.
+
+Открытые библиотеки браузерного движка и их точные версии перечислены
+в ../flutter/web/js/package-lock.json. Уведомления для собранного JS
+должны поставляться вместе с приложением.
+
+Noto Sans: Google Noto Project, SIL Open Font License 1.1.
+Копия лицензии: ui/assets/fonts/OFL.txt.
+SHA256 шрифта: bfb7bb691513f12e734dc346c03a03f784912432d7e3fa8e56efcf906fe86b3d

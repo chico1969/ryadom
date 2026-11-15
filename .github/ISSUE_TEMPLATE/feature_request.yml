@@ -1,0 +1,22 @@
+name: Предложение
+description: Улучшить конкретный сценарий «Рядом»
+title: "[Идея] "
+body:
+  - type: textarea
+    id: scenario
+    attributes:
+      label: Что вы хотите сделать?
+      description: Опишите человека, задачу и возникающее затруднение.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Предлагаемое поведение
+      description: Как это должно работать? Сначала объясните сценарий, затем решение.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Что уже пробовали?

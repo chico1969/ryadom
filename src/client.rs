@@ -390,6 +390,13 @@ impl Client {
         debug_assert!(peer == interface.get_id());
         interface.update_direct(None);
         interface.update_received(false);
+        #[cfg(feature = "ryadom")]
+        {
+            if config::is_incoming_only() { bail!("Incoming only mode"); }
+            let sid = interface.get_lch().read().unwrap().session_id;
+            return crate::ryadom::connect(peer, sid, conn_type).await;
+        }
+        #[cfg(not(feature = "ryadom"))]
         match Self::_start(peer, key, token, conn_type, interface.clone()).await {
             Err(err) => {
                 let err_str = err.to_string();
@@ -3204,6 +3211,8 @@ impl LoginConfigHandler {
     // `toggle_option()` is only called in a session.
     // Custom client advanced settings will not effect this function.
     pub fn toggle_option(&mut self, name: String) -> Option<Message> {
+        #[cfg(feature = "ryadom")]
+        if matches!(name.as_str(), "show-remote-cursor" | "show-my-cursor") { return None; }
         let mut option = OptionMessage::default();
         let mut config = self.load_config();
         if name == "show-remote-cursor" {
@@ -3295,6 +3304,11 @@ impl LoginConfigHandler {
                     BoolOption::No.into()
                 }
             };
+            #[cfg(feature = "ryadom")]
+            {
+                config.show_my_cursor.v = config.view_only.v;
+                option.show_my_cursor = f(config.view_only.v);
+            }
             if config.view_only.v {
                 option.disable_keyboard = f(true);
                 option.disable_clipboard = f(true);
@@ -3438,12 +3452,16 @@ impl LoginConfigHandler {
     }
 
     pub fn get_supported_decoding(&self) -> SupportedDecoding {
-        Decoder::supported_decodings(
+        let decoding = Decoder::supported_decodings(
             Some(&self.id),
             use_texture_render(),
             self.adapter_luid,
             &self.mark_unsupported,
-        )
+        );
+        #[cfg(feature = "ryadom")]
+        return crate::ryadom::interaction::low_latency_decoding(decoding);
+        #[cfg(not(feature = "ryadom"))]
+        decoding
     }
 
     /// Parse the image quality option.
@@ -3479,6 +3497,8 @@ impl LoginConfigHandler {
     // `get_toggle_option()` is only called in a session.
     // Custom client advanced settings will not effect this function.
     pub fn get_toggle_option(&self, name: &str) -> bool {
+        #[cfg(feature = "ryadom")]
+        if let Some(value) = crate::ryadom::interaction::cursor_option(name, self.config.view_only.v) { return value; }
         if name == "show-remote-cursor" {
             self.config.show_remote_cursor.v
         } else if name == "lock-after-session-end" {
@@ -3776,6 +3796,11 @@ impl LoginConfigHandler {
     }
 
     /// Create a [`Message`] for login.
+    #[cfg(feature = "ryadom")]
+    pub(crate) fn ryadom_resume_login(&self) -> Message {
+        self.create_login_msg(String::new(), String::new(), vec![])
+    }
+
     fn create_login_msg(
         &self,
         os_username: String,
@@ -3870,6 +3895,13 @@ impl LoginConfigHandler {
             avatar,
             ..Default::default()
         };
+        #[cfg(feature = "ryadom")]
+        {
+            lr.ryadom_session_version = 1;
+            if self.hash.ryadom_session_version == 1 {
+                lr.ryadom_resume_token = crate::ryadom::resume::token_for(&self.id,self.session_id,self.conn_type as i32).into();
+            }
+        }
         if self.skips_saved_password() {
             lr.password.clear();
         }
@@ -3906,6 +3938,8 @@ impl LoginConfigHandler {
             self.adapter_luid,
             &self.mark_unsupported,
         );
+        #[cfg(feature = "ryadom")]
+        let decoding = crate::ryadom::interaction::low_latency_decoding(decoding);
         let mut misc = Misc::new();
         misc.set_option(OptionMessage {
             supported_decoding: hbb_common::protobuf::MessageField::some(decoding),
@@ -3949,7 +3983,7 @@ impl LoginConfigHandler {
     }
 
     pub fn get_conn_token(&self) -> Option<String> {
-        if self.password.is_empty() {
+        if self.password.is_empty() && !cfg!(feature = "ryadom") {
             return None;
         }
         serde_json::to_string(&ConnToken {
@@ -4653,6 +4687,14 @@ pub async fn handle_hash(
     trust: &mut crate::trusted_devices::client::Session,
     peer: &mut Stream,
 ) -> bool {
+    #[cfg(feature="ryadom")]
+    {
+        let config=lc.read().unwrap();
+        let expired=crate::ryadom::resume::remaining_for(config.get_id(),config.session_id,config.conn_type as i32).is_some_and(|d|d.is_zero());drop(config);
+        if expired{
+            interface.msgbox("error","Восстановление завершено","Разрешение истекло. Подключитесь заново.","");return false;
+        }
+    }
     lc.write().unwrap().hash = hash.clone();
     // Take care of password application order
 
@@ -4744,9 +4786,10 @@ pub async fn handle_hash(
         }
     }
 
-    lc.write().unwrap().password = password.clone();
-
     let request_approval = lc.read().unwrap().skips_saved_password();
+    #[cfg(feature = "ryadom")]
+    let request_approval = crate::ryadom::interaction::request_approval(&hash, &mut password, request_approval);
+    lc.write().unwrap().password = password.clone();
 
     let is_terminal_admin = lc.read().unwrap().is_terminal_admin;
     let is_terminal = lc.read().unwrap().conn_type.eq(&ConnType::TERMINAL);
@@ -5035,6 +5078,10 @@ pub trait Interface: Send + Clone + 'static + Sized {
 #[derive(Clone)]
 pub enum Data {
     Close,
+    #[cfg(feature = "ryadom")]
+    RyadomEnd,
+    #[cfg(feature = "ryadom")]
+    RyadomP2P(bool),
     RejectInsecureConnection,
     Login((String, String, String, bool)),
     Message(Message),

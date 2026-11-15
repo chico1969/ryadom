@@ -1,0 +1,13 @@
+import fs from 'node:fs/promises';
+import {randomBytes} from 'node:crypto';
+import nacl from '../flutter/web/js/node_modules/tweetnacl/nacl-fast.js';
+const [input,output]=process.argv.slice(2);
+if(!input||!output)throw new Error('Нужны локальный файл TURN и путь генерируемой конфигурации');
+const raw=await fs.readFile(input,'utf8');
+const servers=JSON.parse(raw.replace(/^\uFEFF/,''));
+if(!Array.isArray(servers)||!servers.length||servers.some(server=>!Array.isArray(server.urls)||!server.urls.length||!server.username||!server.credential||Object.keys(server).some(key=>!['urls','username','credential'].includes(key))))throw new Error('Некорректная тестовая конфигурация TURN');
+const key=randomBytes(32),nonce=randomBytes(24);
+const sealed=nacl.secretbox(new TextEncoder().encode(JSON.stringify(servers)),nonce,key);
+const constant=(name,bytes)=>`const ${name}: &[u8] = &[${Array.from(bytes).join(',')}];\n`;
+await fs.writeFile(output,'// Test-only obfuscation: the decryption key is recoverable from the executable.\n'+constant('KEY',key)+constant('NONCE',nonce)+constant('SEALED',sealed));
+console.log('Семейная тестовая конфигурация подготовлена. Это сокрытие, а не защита от извлечения из EXE.');

@@ -305,6 +305,17 @@ pub fn will_session_close_close_session(session_id: SessionID) -> SyncReturn<boo
 
 pub fn session_close(session_id: SessionID) {
     if let Some(session) = sessions::remove_session_by_session_id(&session_id) {
+        #[cfg(feature = "ryadom")]
+        {
+            let lc=session.lc.read().unwrap();
+            if lc.conn_type == hbb_common::rendezvous_proto::ConnType::DEFAULT_CONN {
+                crate::ryadom::resume::forget(lc.get_id(),lc.session_id);
+                crate::ryadom::p2p::forget(lc.get_id(),lc.session_id);
+                crate::client::Interface::send(&*session,crate::client::Data::RyadomEnd);
+            }else{
+                crate::ryadom::resume::clear_channel(lc.get_id(),lc.session_id,lc.conn_type as i32);
+            }
+        }
         crate::keyboard::shortcuts::clear_session_state(&session_id);
         // `release_remote_keys` is not required for mobile platforms in common cases.
         // But we still call it to make the code more stable.
@@ -1414,6 +1425,9 @@ pub fn main_clip_cursor(
 }
 
 pub fn main_get_my_id() -> String {
+    #[cfg(feature = "ryadom")]
+    return crate::ryadom::display_code();
+    #[cfg(not(feature = "ryadom"))]
     get_id()
 }
 

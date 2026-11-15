@@ -1,0 +1,11 @@
+{
+  "name": "ryadom-signaling",
+  "main": "worker.mjs",
+  "compatibility_date": "2026-11-14",
+  "workers_dev": true,
+  "durable_objects": {
+    "bindings": [{"name": "SIGNALS", "class_name": "SignalHub"}]
+  },
+  "migrations": [{"tag": "v1", "new_sqlite_classes": ["SignalHub"]}],
+  "observability": {"enabled": false}
+}

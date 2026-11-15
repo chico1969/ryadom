@@ -1778,6 +1778,9 @@ fn cm_inner_send(id: i32, data: Data) {
 }
 
 pub fn can_elevate() -> bool {
+    #[cfg(all(windows, feature = "ryadom"))]
+    return !crate::ryadom::interaction::elevation_ready();
+    #[cfg(not(feature = "ryadom"))]
     #[cfg(windows)]
     return !crate::platform::is_installed();
     #[cfg(not(windows))]

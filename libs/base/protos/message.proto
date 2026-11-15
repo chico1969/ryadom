@@ -86,6 +86,8 @@ message LoginRequest {
   string avatar = 17;
   bytes trusted_device_v2_token = 18;
   bool trusted_device_v2_supported = 19;
+  uint32 ryadom_session_version = 100;
+  bytes ryadom_resume_token = 101;
 }
 
 message Terminal {
@@ -152,6 +154,7 @@ message LoginResponse {
   bool enable_trusted_devices = 3;
   bool trusted_device_v2_supported = 4;
   bytes trusted_device_v2_token = 5;
+  bytes ryadom_resume_token = 100;
 }
 
 message TouchScaleUpdate {
@@ -333,6 +336,9 @@ message CursorPosition {
 message Hash {
   string salt = 1;
   string challenge = 2;
+  uint32 ryadom_auth_version = 3;
+  bool ryadom_password_set = 4;
+  uint32 ryadom_session_version = 5;
 }
 
 enum ClipboardFormat {
@@ -1002,6 +1008,22 @@ message PortForwardChannel {
   }
 }
 
+message RyadomParticipant {
+  int32 id = 1;
+  string name = 2;
+}
+
+message RyadomControl {
+  uint32 version = 1;
+  // Client requests: claim, transfer, release, query. Host replies: state, denied.
+  string action = 2;
+  int32 target = 3;
+  int32 holder = 4;
+  int32 you = 5;
+  repeated RyadomParticipant participants = 6;
+  string reason = 7;
+}
+
 message Message {
   oneof union {
     SignedId signed_id = 3;
@@ -1037,5 +1059,6 @@ message Message {
     PortForwardChannel port_forward_channel = 33;
     // Auto Login: the peer types the password only if it is at its logon or lock screen.
     OSLogin os_login = 34;
+    RyadomControl ryadom_control = 100;
   }
 }

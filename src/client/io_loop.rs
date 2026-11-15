@@ -237,6 +237,8 @@ impl<T: InvokeUiSession> Remote<T> {
                 };
                 self.handler
                     .set_connection_type(is_secured, direct, stream_type); // flutter -> connection_ready
+                #[cfg(feature = "ryadom")]
+                let mut ryadom_direct = direct;
                 if !is_secured
                     && !crate::common::is_direct_ip_access(&self.handler.get_id())
                     && !client::confirm_insecure_connection(&self.handler, &mut self.receiver).await
@@ -349,6 +351,8 @@ impl<T: InvokeUiSession> Remote<T> {
                             }
                         }
                         _ = status_timer.tick() => {
+                            #[cfg(feature = "ryadom")]
+                            crate::ryadom::refresh_transport(&peer, &*self.handler, &mut ryadom_direct, is_secured).await;
                             if self.handler.is_restarting_remote_device()
                                 && last_recv_time.elapsed() >= RESTART_REMOTE_DEVICE_NO_DATA_TIMEOUT
                             {
@@ -756,6 +760,15 @@ impl<T: InvokeUiSession> Remote<T> {
 
     async fn handle_msg_from_ui(&mut self, data: Data, peer: &mut Stream) -> bool {
         match data {
+            #[cfg(feature = "ryadom")]
+            Data::RyadomEnd => {
+                self.send_close_reason(peer, "Ryadom session ended").await;
+                return false;
+            }
+            #[cfg(all(feature = "ryadom", feature = "flutter"))]
+            Data::RyadomP2P(switch) => {
+                crate::ryadom::p2p::request(&self.handler.get_id(), switch);
+            }
             Data::Close => {
                 self.send_close_reason(peer, "").await;
                 return false;
@@ -1696,6 +1709,11 @@ impl<T: InvokeUiSession> Remote<T> {
     async fn handle_msg_from_peer(&mut self, data: &[u8], peer: &mut Stream) -> bool {
         if let Ok(msg_in) = Message::parse_from_bytes(&data) {
             match msg_in.union {
+                #[cfg(all(feature = "ryadom", feature = "flutter"))]
+                Some(message::Union::RyadomControl(state)) => {
+                    let kind = self.handler.lc.read().unwrap().conn_type;
+                    crate::ryadom::record_control(self.handler.get_id(),kind,state);
+                }
                 Some(message::Union::VideoFrame(vf)) => {
                     if !self.first_frame {
                         self.first_frame = true;
@@ -1744,7 +1762,11 @@ impl<T: InvokeUiSession> Remote<T> {
                 }
                 Some(message::Union::LoginResponse(lr)) => match self
                     .trusted_device
-                    .respond(lr, &self.handler)
+                    .respond({
+                        #[cfg(feature = "ryadom")]
+                        if !crate::ryadom::resume::login_reply(&self.handler,&lr) { return false; }
+                        lr
+                    }, &self.handler)
                     .await
                     .union
                 {
@@ -2354,7 +2376,12 @@ impl<T: InvokeUiSession> Remote<T> {
                         }
                     }
                     Some(misc::Union::CloseReason(c)) => {
+                        #[cfg(feature = "ryadom")]
+                        {let lc=self.handler.lc.read().unwrap();if lc.conn_type==ConnType::DEFAULT_CONN{crate::ryadom::resume::forget(lc.get_id(),lc.session_id);}}
                         self.sent_close_reason = true; // The controlled end will close, no need to send close reason
+                        #[cfg(feature="ryadom")]
+                        self.handler.ui_handler.msgbox("error","Доступ завершён",&c,"",false);
+                        #[cfg(not(feature="ryadom"))]
                         self.handler.msgbox("error", "Connection Error", &c, "");
                         return false;
                     }
@@ -2925,6 +2952,8 @@ impl<T: InvokeUiSession> Remote<T> {
         self.video_threads.insert(display, video_thread);
         if self.video_threads.len() == 1 {
             let auto_record = LocalConfig::get_bool_option(keys::OPTION_ALLOW_AUTO_RECORD_OUTGOING);
+            #[cfg(feature="ryadom")]
+            let auto_record=auto_record||self.handler.lc.read().unwrap().record_state;
             self.handler.lc.write().unwrap().record_state = auto_record;
             self.update_record_state();
         }

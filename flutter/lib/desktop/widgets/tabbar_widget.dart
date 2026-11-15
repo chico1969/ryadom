@@ -646,7 +646,9 @@ class _DesktopTabState extends State<DesktopTab>
                       child: Row(children: [
                         Offstage(
                           offstage: !showLogo,
-                          child: loadIcon(16),
+                          child: const bool.fromEnvironment('RYADOM')
+                              ? const Icon(Icons.devices_rounded, size: 16, color: Color(0xff315cdb))
+                              : loadIcon(16),
                         ),
                         Offstage(
                             offstage: !showTitle,

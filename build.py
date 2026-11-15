@@ -118,6 +118,10 @@ def make_parser():
              'Available: [Not used for now]. Special value is "ALL" and empty "". Default is empty.')
     parser.add_argument('--flutter', action='store_true',
                         help='Build flutter package', default=False)
+    parser.add_argument('--ryadom', action='store_true', default=False,
+                        help='Build the Ryadom Windows fork with optional TURN fallback')
+    parser.add_argument('--ryadom-test-turn', action='store_true', default=False,
+                        help='Include recoverable encrypted TURN configuration for private family testing')
     parser.add_argument(
         '--hwcodec',
         action='store_true',
@@ -314,6 +318,12 @@ def linux_packaging_branch():
 
 def get_features(args):
     features = ['inline'] if not args.flutter else []
+    if args.ryadom:
+        if not windows or not args.flutter:
+            raise Exception('--ryadom requires Windows and --flutter')
+        features.append('ryadom')
+        if args.ryadom_test_turn:
+            features.append('ryadom-bundled-turn')
     if args.hwcodec:
         features.append('hwcodec')
     if args.vram:
@@ -967,22 +977,30 @@ def build_flutter_arch_manjaro(version, features):
 
 
 def build_flutter_windows(version, features, skip_portable_pack):
+    if 'ryadom' in features.split(','):
+        os.environ['RYADOM_BUILD'] = '1'
     if not skip_cargo:
         system2(f'cargo build --locked --features {features} --lib --release')
         if not os.path.exists("target/release/librustdesk.dll"):
             print("cargo build failed, please check rust source code.")
             exit(-1)
     os.chdir('flutter')
-    system2('flutter build windows --release')
+    system2('flutter build windows --release' + (' --no-pub --dart-define=RYADOM=true' if 'ryadom' in features.split(',') else ''))
     os.chdir('..')
     shutil.copy2('target/release/deps/dylib_virtual_display.dll',
                  flutter_build_dir_2)
+    runtime_executable = 'rustdesk.exe'
+    if 'ryadom' in features.split(','):
+        runtime_executable = 'Ryadom.exe'
+        os.replace(os.path.join(flutter_build_dir_2, 'rustdesk.exe'),
+                   os.path.join(flutter_build_dir_2, runtime_executable))
     if skip_portable_pack:
         return
     os.chdir('libs/portable')
-    system2('pip3 install -r requirements.txt')
+    python_command = f'"{sys.executable}"' if 'ryadom' in features.split(',') else 'python3'
+    system2(f'{python_command} -m pip install -r requirements.txt' if 'ryadom' in features.split(',') else 'pip3 install -r requirements.txt')
     system2(
-        f'python3 ./generate.py -f ../../{flutter_build_dir_2} -o . -e ../../{flutter_build_dir_2}/rustdesk.exe')
+        f'{python_command} ./generate.py -f ../../{flutter_build_dir_2} -o . -e ../../{flutter_build_dir_2}/{runtime_executable}')
     os.chdir('../..')
     if os.path.exists('./rustdesk_portable.exe'):
         os.replace('./target/release/rustdesk-portable-packer.exe',
@@ -992,7 +1010,10 @@ def build_flutter_windows(version, features, skip_portable_pack):
                   './rustdesk_portable.exe')
     print(
         f'output location: {os.path.abspath(os.curdir)}/rustdesk_portable.exe')
-    os.rename('./rustdesk_portable.exe', f'./rustdesk-{version}-install.exe')
+    if 'ryadom' in features.split(','):
+        os.replace('./rustdesk_portable.exe', f'./rustdesk-{version}-install.exe')
+    else:
+        os.rename('./rustdesk_portable.exe', f'./rustdesk-{version}-install.exe')
     print(
         f'output location: {os.path.abspath(os.curdir)}/rustdesk-{version}-install.exe')
 

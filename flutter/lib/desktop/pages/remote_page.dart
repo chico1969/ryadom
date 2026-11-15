@@ -24,6 +24,8 @@ import '../widgets/remote_toolbar.dart';
 import '../widgets/kb_layout_type_chooser.dart';
 import '../widgets/tabbar_widget.dart';
 import 'macos_full_screen_focus_recovery.dart';
+import '../../ryadom/remote_cursor.dart';
+import '../../ryadom/codec_auto.dart';
 
 import 'package:flutter_hbb/native/custom_cursor.dart'
     if (dart.library.html) 'package:flutter_hbb/web/custom_cursor.dart';
@@ -171,6 +173,9 @@ class _RemotePageState extends State<RemotePage>
       // side effect of registering callbacks (inside toolbarControls) is
       // what we want here.
       if (mounted) {
+        if (const bool.fromEnvironment('RYADOM') && widget.display == null) {
+          unawaited(ryadomCodecController(_ffi).beginIfAutomatic());
+        }
         toolbarControls(context, widget.id, _ffi);
         registerSessionShortcutActions(_ffi,
             tabController: widget.tabController,
@@ -652,6 +657,7 @@ class _RemotePageState extends State<RemotePage>
 
   @override
   Future<void> dispose() async {
+    if (const bool.fromEnvironment('RYADOM')) disposeRyadomCodec(_ffi);
     final closeSession = closeSessionOnDispose.remove(widget.id) ?? true;
 
     // https://github.com/flutter/flutter/issues/64935
@@ -1147,7 +1153,9 @@ class _ImagePaintState extends State<ImagePaint> {
                               ? (() {
                                   if (remoteCursorMoved.isTrue) {
                                     _lastRemoteCursorMoved = true;
-                                    return SystemMouseCursors.none;
+                                    return const bool.fromEnvironment('RYADOM')
+                                        ? _buildCustomCursor(context, getCursorScale())
+                                        : SystemMouseCursors.none;
                                   } else {
                                     if (_lastRemoteCursorMoved) {
                                       _lastRemoteCursorMoved = false;
@@ -1504,6 +1512,10 @@ class CursorPaint extends StatelessWidget {
       scale = c.scale;
     }
 
+    if (const bool.fromEnvironment('RYADOM')) {
+      return RyadomRemoteCursor(position: m.offset,
+          image: m.image ?? preDefaultCursor.image, x: x, y: y, scale: scale);
+    }
     return CustomPaint(
       painter: ImagePainter(
         image: m.image ?? preDefaultCursor.image,

@@ -39,6 +39,20 @@ pub fn get_key_cursor(conn_id: i32) -> String {
     format!("{}-cursor", conn_id)
 }
 
+#[cfg(feature = "ryadom")]
+pub fn ensure_ryadom_pointer(conn_id: i32) {
+    let key = get_key_cursor(conn_id);
+    let registered = CONNS.read().unwrap().contains_key(&key);
+    if !registered { register_whiteboard(key); }
+}
+
+#[cfg(feature = "ryadom")]
+pub fn clear_ryadom_pointer(conn_id: i32) {
+    let key = get_key_cursor(conn_id);
+    let registered = CONNS.read().unwrap().contains_key(&key);
+    if registered { unregister_whiteboard(key); }
+}
+
 pub fn register_whiteboard(k: String) {
     std::thread::spawn(|| {
         allow_err!(start_whiteboard_());

@@ -16,6 +16,13 @@ use crate::keyboard::client::map_key_to_control_key;
 use crate::platform::WallPaperRemover;
 #[cfg(windows)]
 use crate::portable_service::client as portable_client;
+#[cfg(feature = "ryadom")]
+#[path = "ryadom_floor.rs"]
+mod ryadom_floor;
+#[cfg(feature = "ryadom")]
+#[path = "ryadom_resume.rs"]
+pub(crate) mod ryadom_resume;
+
 use crate::{
     client::{
         new_voice_call_request, new_voice_call_response, start_audio_thread, MediaData, MediaSender,
@@ -256,6 +263,8 @@ struct InputMouse {
 }
 
 enum MessageInput {
+    #[cfg(feature = "ryadom")]
+    RyadomRelease(hbb_common::tokio::sync::oneshot::Sender<()>),
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     Mouse(InputMouse),
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
@@ -315,6 +324,8 @@ enum ConnAuditPrimaryAuth {
     TemporaryPassword = 2,
     PermanentPassword = 3,
     SwitchSides = 4,
+    #[cfg(feature = "ryadom")]
+    Resumed = 5,
 }
 
 impl ConnAuditPrimaryAuth {
@@ -548,6 +559,8 @@ impl Connection {
             challenge: Config::get_auto_password(6),
             ..Default::default()
         };
+        #[cfg(feature = "ryadom")]
+        let hash = crate::ryadom::interaction::login_challenge(hash);
         let (tx_from_cm_holder, mut rx_from_cm) = mpsc::unbounded_channel::<ipc::Data>();
         // holding tx_from_cm_holder to avoid cpu burning of rx_from_cm.recv when all sender closed
         let tx_from_cm = tx_from_cm_holder.clone();
@@ -764,6 +777,8 @@ impl Connection {
                             }
                         }
                         ipc::Data::Close => {
+                            #[cfg(feature = "ryadom")]
+                            ryadom_resume::revoke_connection(&conn, true);
                             conn.chat_unanswered = false; // seen
                             conn.file_transferred = false; //seen
                             conn.send_close_reason_no_retry("").await;
@@ -910,6 +925,8 @@ impl Connection {
                                 conn.privacy_mode = enabled;
                                 conn.send_permission(Permission::PrivacyMode, enabled).await;
                             }
+                            #[cfg(feature = "ryadom")]
+                            ryadom_resume::update(&conn);
                         }
                         ipc::Data::RawMessage(bytes) => {
                             allow_err!(conn.stream.send_raw(bytes).await);
@@ -973,6 +990,10 @@ impl Connection {
                         #[cfg(feature = "flutter")]
                         #[cfg(not(any(target_os = "android", target_os = "ios")))]
                         ipc::Data::SwitchSidesBack => {
+                            #[cfg(feature = "ryadom")]
+                            if ryadom_floor::request_switch(&mut conn).await {
+                                continue;
+                            }
                             let mut misc = Misc::new();
                             misc.set_switch_back(SwitchBack::default());
                             let mut msg = Message::new();
@@ -1151,6 +1172,12 @@ impl Connection {
                 Some(data) = rx_from_authed.recv() => {
                     match data {
                         ipc::Data::Close => {
+                            #[cfg(feature = "ryadom")]
+                            if ryadom_resume::revoked(conn.inner.id()) {
+                                conn.send_close_reason_no_retry("Доступ завершён владельцем").await;
+                                conn.on_close("owner revoked", true).await;
+                                break;
+                            }
                             conn.send(crate::common::make_privacy_mode_msg(
                                 back_notification::PrivacyModeState::PrvOnByOther,
                                 String::new(),
@@ -1170,6 +1197,18 @@ impl Connection {
                     }
                 }
                 _ = second_timer.tick() => {
+                    #[cfg(feature = "ryadom")]
+                    if conn.authorized && conn.lr.ryadom_session_version==1 && conn.stream.webrtc_disconnected() {
+                        // Drop the old SCTP queues and release held input before accepting a replacement.
+                        // The in-memory grant, not this transport, authorizes the retry.
+                        conn.on_close("Сеть недоступна; ожидаем восстановления сеанса", false).await;
+                        break;
+                    }
+                    #[cfg(feature = "ryadom")]
+                    if ryadom_floor::click_disconnected(&conn) {
+                        conn.on_close("Разовый доступ прерван; требуется новое подтверждение", true).await;
+                        break;
+                    }
                     #[cfg(windows)]
                     conn.portable_check();
                     raii::AuthedConnID::check_wake_lock_on_setting_changed();
@@ -1287,6 +1326,11 @@ impl Connection {
                     }
                     MessageInput::Pointer((msg, id)) => {
                         handle_pointer(&msg, id);
+                    }
+                    #[cfg(feature = "ryadom")]
+                    MessageInput::RyadomRelease(ack) => {
+                        super::input_service::release_ryadom_input();
+                        let _ = ack.send(());
                     }
                     MessageInput::BlockOn => {
                         let (ok, msg) = crate::platform::block_input(true);
@@ -1891,6 +1935,8 @@ impl Connection {
         if !self.check_trusted_device().await {
             return false;
         }
+        #[cfg(feature = "ryadom")]
+        if !ryadom_floor::admit(self).await { return false; }
         if let Some(keep_alive) = self.prepare_terminal_login_for_authorization().await {
             return keep_alive;
         }
@@ -1906,6 +1952,13 @@ impl Connection {
         }
         self.lr.trusted_device_v2_token.clear();
         self.authorized = true;
+        #[cfg(feature = "ryadom")]
+        if !ryadom_floor::join(self).await { return false; }
+        #[cfg(feature = "ryadom")]
+        if !ryadom_floor::controls(self.inner.id()) {
+            self.options_in_login = None;
+            self.lr.os_login = Default::default();
+        }
         self.unauthorized_id = None;
         // One-time means gone once it has let a peer in, not once that peer
         // leaves. This session's later logins come in on the password the
@@ -1981,6 +2034,8 @@ impl Connection {
         }
         #[cfg(target_os = "windows")]
         {
+            #[cfg(feature = "ryadom")]
+            platform_additions.insert("ryadom_elevated".into(), json!(crate::ryadom::interaction::elevation_ready()));
             platform_additions.insert(
                 "is_installed".into(),
                 json!(crate::platform::is_installed()),
@@ -2023,6 +2078,9 @@ impl Connection {
         {
             platform_additions.insert("support_view_camera".into(), json!(true));
         }
+
+        #[cfg(all(feature = "ryadom", any(target_os = "windows", target_os = "linux", target_os = "macos")))]
+        platform_additions.insert("ryadom_short_code".into(), json!(crate::ryadom::active_code()));
 
         #[cfg(any(target_os = "linux", target_os = "windows", target_os = "macos"))]
         if !platform_additions.is_empty() {
@@ -2190,6 +2248,8 @@ impl Connection {
         if !self.enroll_trusted_device(&mut res).await {
             return false;
         }
+        #[cfg(feature = "ryadom")]
+        { res.ryadom_resume_token = ryadom_resume::issue(self).into(); }
         let mut msg_out = Message::new();
         msg_out.set_login_response(res);
         self.send(msg_out).await;
@@ -2886,9 +2946,19 @@ impl Connection {
     }
 
     async fn on_message(&mut self, msg: Message) -> bool {
+        #[cfg(feature = "ryadom")]
+        if self.authorized && ryadom_resume::revoked(self.inner.id()) {
+            return false;
+        }
+        #[cfg(feature = "ryadom")]
+        if self.authorized && ryadom_floor::filter(self, &msg).await {
+            return true;
+        }
         if let Some(message::Union::Misc(misc)) = &msg.union {
             // Move the CloseReason forward, as this message needs to be received when unauthorized, especially for kcp.
             if let Some(misc::Union::CloseReason(s)) = &misc.union {
+                #[cfg(feature = "ryadom")]
+                ryadom_resume::revoke_connection(self, s == "Ryadom session ended");
                 log::info!("receive close reason: {}", s);
                 self.on_close("Peer close", true).await;
                 raii::AuthedConnID::check_remove_session(self.inner.id(), self.session_key());
@@ -3040,6 +3110,16 @@ impl Connection {
                 crate::get_builtin_option(keys::OPTION_ALLOW_LOGON_SCREEN_PASSWORD) == "Y"
                     && is_logon();
 
+            #[cfg(feature = "ryadom")]
+            if !lr.ryadom_resume_token.is_empty() {
+                if !ryadom_resume::restored(self) {
+                    self.send_login_error("RYADOM_RESUME_DENIED: Разрешение на восстановление истекло или отозвано").await;
+                    return false;
+                }
+                if !self.send_logon_response_and_keep_alive().await { return false; }
+                self.try_start_cm(lr.my_id.clone(),lr.my_name.clone(),self.authorized);
+                return true;
+            }
             if (password::approve_mode() == ApproveMode::Click && !allow_logon_screen_password)
                 || password::approve_mode() == ApproveMode::Both && !password::has_valid_password()
             {
@@ -3399,7 +3479,9 @@ impl Connection {
                 }
                 Some(message::Union::Clipboard(cb)) => {
                     if self.should_handle_text_clipboard_message() && self.clipboard_enabled() {
-                        #[cfg(not(any(target_os = "android", target_os = "ios")))]
+                        #[cfg(all(feature = "ryadom", not(any(target_os = "android", target_os = "ios"))))]
+                        crate::clipboard::update_ryadom_clipboard(vec![cb], ClipboardSide::Host).await;
+                        #[cfg(all(not(feature = "ryadom"), not(any(target_os = "android", target_os = "ios"))))]
                         update_clipboard(vec![cb], ClipboardSide::Host);
                         // ios as the controlled side is actually not supported for now.
                         // The following code is only used to preserve the logic of handling text clipboard on mobile.
@@ -3515,6 +3597,8 @@ impl Connection {
                 }
                 Some(message::Union::FileAction(fa)) => {
                     let mut handle_fa = self.file_transfer.is_some();
+                    #[cfg(feature = "ryadom")]
+                    if self.file_transfer_enabled() { handle_fa = true; }
                     if !handle_fa {
                         if let Some(file_action::Union::Send(s)) = fa.union.as_ref() {
                             if JobType::from_proto(s.file_type) == JobType::Printer {
@@ -5306,6 +5390,12 @@ impl Connection {
             return;
         }
         self.closed = true;
+        #[cfg(feature = "ryadom")]
+        let recovering = ryadom_resume::detached(self);
+        #[cfg(not(feature = "ryadom"))]
+        let recovering = false;
+        #[cfg(feature = "ryadom")]
+        ryadom_floor::leave(self).await;
         // If voice A,B -> C, and A,B has voice call
         // B disconnects, C will reset the voice call input.
         //
@@ -5317,7 +5407,7 @@ impl Connection {
         // But it's not necessary now and we have to consider two audio services(client, server).
         crate::audio_service::set_voice_call_input_device(None, true);
         log::info!("#{} Connection closed: {}", self.inner.id(), reason);
-        if lock
+        if lock && !recovering
             && self.lock_after_session_end
             && self.keyboard
             && !raii::AuthedConnID::session_reconnected(self.inner.id(), &self.session_key())
@@ -5328,7 +5418,7 @@ impl Connection {
             lock_screen().await;
         }
         #[cfg(not(any(target_os = "android", target_os = "ios")))]
-        let data = if self.chat_unanswered || self.file_transferred && cfg!(feature = "flutter") {
+        let data = if recovering || self.chat_unanswered || self.file_transferred && cfg!(feature = "flutter") {
             ipc::Data::Disconnected
         } else {
             ipc::Data::Close
@@ -5344,6 +5434,8 @@ impl Connection {
 
     // The `reason` should be consistent with `check_if_retry` if not empty
     async fn send_close_reason_no_retry(&mut self, reason: &str) {
+        #[cfg(feature = "ryadom")]
+        ryadom_resume::revoke_connection(self, true);
         let mut misc = Misc::new();
         if reason.is_empty() {
             misc.set_close_reason("Closed manually by the peer".to_string());
@@ -5678,6 +5770,8 @@ impl Connection {
         }
         let running = portable_client::running();
         let show_elevation = !running;
+        #[cfg(feature = "ryadom")]
+        let show_elevation = show_elevation && !crate::ryadom::interaction::elevation_ready();
         self.send_to_cm(ipc::Data::DataPortableService(
             ipc::DataPortableService::CmShowElevation(show_elevation),
         ));
@@ -6319,6 +6413,10 @@ impl Connection {
 
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     async fn handle_terminal_action(&mut self, action: TerminalAction) -> ResultType<()> {
+        #[cfg(feature = "ryadom")]
+        if self.terminal_user_token.is_none() && self.authorized && ryadom_floor::controls(self.inner.id()) {
+            if !ryadom_floor::prepare_terminal(self).await { return Ok(()); }
+        }
         debug_assert!(self.terminal_user_token.is_some());
         let Some(user_token) = self.terminal_user_token.clone() else {
             // unreacheable, but keep it for safety

@@ -315,6 +315,13 @@ pub fn update_clipboard(multi_clipboards: Vec<Clipboard>, side: ClipboardSide) {
     });
 }
 
+#[cfg(all(feature = "ryadom", not(any(target_os = "android", target_os = "ios"))))]
+pub async fn update_ryadom_clipboard(multi_clipboards: Vec<Clipboard>, side: ClipboardSide) {
+    if let Err(error)=hbb_common::tokio::task::spawn_blocking(move||update_clipboard_(multi_clipboards,side)).await {
+        hbb_common::throttled_log!(std::time::Duration::from_secs(60),warn,"Рядом: не завершено обновление буфера: {}",error);
+    }
+}
+
 #[cfg(not(target_os = "android"))]
 pub struct ClipboardContext {
     inner: arboard::Clipboard,

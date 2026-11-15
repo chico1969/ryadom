@@ -39,6 +39,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:vector_math/vector_math.dart' show Vector2;
 
 import '../common.dart';
+import '../ryadom/recovery.dart';
 import '../utils/image.dart' as img;
 import '../common/widgets/dialog.dart';
 import 'input_model.dart';
@@ -338,6 +339,7 @@ class FfiModel with ChangeNotifier {
       } else if (name == 'set_multiple_windows_session') {
         handleMultipleWindowsSession(evt, sessionId, peerId);
       } else if (name == 'peer_info') {
+        if (const bool.fromEnvironment('RYADOM')) clearRyadomRecovery(sessionId.toString());
         handlePeerInfo(evt, peerId, false);
       } else if (name == 'sync_peer_info') {
         handleSyncPeerInfo(evt, sessionId, peerId);
@@ -404,6 +406,13 @@ class FfiModel with ChangeNotifier {
         parent.target?.serverModel.setShowElevation(show);
       } else if (name == 'cancel_msgbox') {
         cancelMsgBox(evt, sessionId);
+      } else if (name == 'ryadom_p2p_ready' && const bool.fromEnvironment('RYADOM')) {
+        bind.sessionReconnect(sessionId:sessionId,forceRelay:false);
+      } else if (name == 'ryadom_switch_request' && const bool.fromEnvironment('RYADOM')) {
+        final ffi = parent.target;
+        if (ffi != null) {
+          showConfirmSwitchSidesDialog(sessionId, peerId, ffi.dialogManager);
+        }
       } else if (name == 'switch_back') {
         final peer_id = evt['peer_id'].toString();
         await bind.sessionSwitchSides(sessionId: sessionId);
@@ -892,6 +901,19 @@ class FfiModel with ChangeNotifier {
     final title = evt['title'];
     final text = evt['text'];
     final link = evt['link'];
+    if(const bool.fromEnvironment('RYADOM') &&
+        (title=='Доступ завершён'||title=='Восстановление завершено')){
+      clearRyadomRecovery(sessionId.toString());_timer?.cancel();
+    }
+    if (const bool.fromEnvironment('RYADOM') && type == 'ryadom-reconnecting') {
+      final seconds = int.tryParse(text.toString()) ?? 0;
+      setRyadomRecovering(sessionId.toString(), seconds);
+      _timer?.cancel();
+      _timer = Timer(const Duration(seconds: 2), () {
+        reconnect(dialogManager, sessionId, false);
+      });
+      return;
+    }
 
     // The peer-gone detector reconnects under `restarting-show` rather than an error title, so
     // it needs naming here too. By its own title, not the type: an explicitly restarted remote
@@ -4008,7 +4030,9 @@ class ElevationModel with ChangeNotifier {
   ElevationModel(this.parent);
   bool _running = false;
   bool _canElevate = false;
-  bool get showRequestMenu => _canElevate && !_running;
+  bool get showRequestMenu => _canElevate && !_running &&
+      (!const bool.fromEnvironment('RYADOM') ||
+          parent.target?.ffiModel.pi.platformAdditions['ryadom_elevated'] != true);
   onPeerInfo(PeerInfo pi) {
     _canElevate = pi.platform == kPeerPlatformWindows && pi.sasEnabled == false;
     _running = false;

@@ -50,6 +50,17 @@ pub(super) fn create_event_loop() -> ResultType<()> {
 
     let window = Arc::new(window_builder.build::<(String, CustomEvent)>(&event_loop)?);
     window.set_ignore_cursor_events(true)?;
+    #[cfg(feature = "ryadom")]
+    {
+        use tao::platform::windows::WindowExtWindows;
+        if !base::platform::windows::is_windows_version_or_greater(10, 0, 19041, 0, 0) {
+            return Err(anyhow!("Указка без дублирования требует Windows 10 2004 или новее"));
+        }
+        // This pointer is for the person at the host, not part of the shared desktop.
+        if unsafe { winapi::um::winuser::SetWindowDisplayAffinity(window.hwnd() as _, 0x11) } == 0 {
+            return Err(std::io::Error::last_os_error().into());
+        }
+    }
 
     let context = Context::new(window.clone()).map_err(|e| {
         log::error!("Failed to create context: {}", e);
@@ -222,6 +233,8 @@ pub(super) fn create_event_loop() -> ResultType<()> {
                 CustomEvent::Exit => {
                     *control_flow = ControlFlow::Exit;
                 }
+                #[cfg(feature = "ryadom")]
+                CustomEvent::Clear => { last_cursors.remove(&k); }
                 _ => {}
             },
             _ => (),

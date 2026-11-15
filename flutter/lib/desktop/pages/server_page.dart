@@ -21,6 +21,7 @@ import '../../common/widgets/chat_page.dart';
 import '../../models/file_model.dart';
 import '../../models/platform_model.dart';
 import '../../models/server_model.dart';
+import '../../ryadom/recovery.dart';
 
 /// Set only by this window's own close control, and only once the user has confirmed. Any other
 /// way the window can go - a session logout closing every window, the window manager, a native
@@ -1008,7 +1009,9 @@ class _CmControlPanel extends StatelessWidget {
           ),
         ),
         Offstage(
-          offstage: !client.fromSwitch,
+          offstage: const bool.fromEnvironment('RYADOM')
+              ? client.isFileTransfer || client.isViewCamera || client.isTerminal || client.portForward.isNotEmpty || client.peerId.startsWith('browser-')
+              : !client.fromSwitch,
           child: buildButton(context,
               color: Colors.purple,
               onClick: () => handleSwitchBack(context),
@@ -1055,6 +1058,9 @@ class _CmControlPanel extends StatelessWidget {
   }
 
   buildDisconnected(BuildContext context) {
+    if (const bool.fromEnvironment('RYADOM')) {
+      return RyadomRecoveryOwner(connection:client.id,onEnded:handleClose);
+    }
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -1082,7 +1088,7 @@ class _CmControlPanel extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
         Offstage(
-          offstage: !showElevation || !showAccept,
+            offstage: !showElevation || !showAccept || const bool.fromEnvironment('RYADOM'),
           child: buildButton(context, color: Colors.green[700], onClick: () {
             handleAccept(context);
             handleElevate(context);

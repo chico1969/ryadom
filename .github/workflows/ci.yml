@@ -66,6 +66,7 @@ jobs:
   #       args: --locked
 
   build:
+    if: github.repository == 'rustdesk/rustdesk'
     name: ${{ matrix.job.target }} (${{ matrix.job.os }})
     runs-on: ${{ matrix.job.os }}
     strategy:

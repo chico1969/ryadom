@@ -17,6 +17,8 @@ import 'package:flutter_hbb/desktop/screen/desktop_remote_screen.dart';
 import 'package:flutter_hbb/desktop/screen/desktop_terminal_screen.dart';
 import 'package:flutter_hbb/desktop/widgets/refresh_wrapper.dart';
 import 'package:flutter_hbb/models/state_model.dart';
+import 'package:flutter_hbb/ryadom/window.dart';
+import 'package:flutter_hbb/ryadom/readable_theme.dart';
 import 'package:flutter_hbb/utils/multi_window_manager.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:get/get.dart';
@@ -155,6 +157,7 @@ void runMainApp(bool startService) async {
   windowManager.waitUntilReadyToShow(windowOptions, () async {
     // Restore the location of the main window before window hide or show.
     await restoreWindowPosition(WindowType.Main);
+    if (const bool.fromEnvironment('RYADOM') && isWindows) await configureRyadomMainWindow();
     // Check the startup argument, if we successfully handle the argument, we keep the main window hidden.
     final handledByUniLinks = await initUniLinks();
     debugPrint("handled by uni links: $handledByUniLinks");
@@ -361,8 +364,8 @@ void _runApp(
       navigatorKey: globalKey,
       debugShowCheckedModeBanner: false,
       title: title,
-      theme: MyTheme.lightTheme,
-      darkTheme: MyTheme.darkTheme,
+      theme: const bool.fromEnvironment('RYADOM')?ryadomReadableTheme(MyTheme.lightTheme):MyTheme.lightTheme,
+      darkTheme: const bool.fromEnvironment('RYADOM')?ryadomReadableTheme(MyTheme.darkTheme):MyTheme.darkTheme,
       themeMode: themeMode,
       home: home,
       localizationsDelegates: const [
@@ -498,8 +501,8 @@ class _AppState extends State<App> with WidgetsBindingObserver {
           title: isWeb
               ? '${bind.mainGetAppNameSync()} Web Client V2 (Preview)'
               : bind.mainGetAppNameSync(),
-          theme: MyTheme.lightTheme,
-          darkTheme: MyTheme.darkTheme,
+          theme: const bool.fromEnvironment('RYADOM')?ryadomReadableTheme(MyTheme.lightTheme):MyTheme.lightTheme,
+          darkTheme: const bool.fromEnvironment('RYADOM')?ryadomReadableTheme(MyTheme.darkTheme):MyTheme.darkTheme,
           themeMode: MyTheme.currentThemeMode(),
           home: isDesktop
               ? const DesktopTabPage()

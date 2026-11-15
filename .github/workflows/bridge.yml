@@ -39,6 +39,10 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Apply Ryadom dependency patch
+        if: ${{ hashFiles('ryadom/patches/hbb_common.patch') != '' }}
+        run: git -C libs/hbb_common apply ../../ryadom/patches/hbb_common.patch
+
       - name: Install prerequisites
         run: |
           sudo apt-get install ca-certificates -y

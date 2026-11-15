@@ -43,15 +43,24 @@ fn finish_macos_update(result: hbb_common::ResultType<()>) -> Option<CoreMainAct
 /// If it returns [`Some`], the action determines whether to start the UI or report failure.
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 pub fn core_main() -> Option<CoreMainAction> {
+    #[cfg(feature = "ryadom")]
+    if let Err(err)=crate::ryadom::init_product() { return Some(CoreMainAction::ExitFailure(err)); }
     if !crate::common::global_init() {
         return None;
     }
+    #[cfg(not(feature = "ryadom"))]
     crate::load_custom_client();
     #[cfg(windows)]
     if !crate::platform::windows::bootstrap() {
         // return None to terminate the process
         return None;
     }
+    #[cfg(all(feature = "ryadom", windows))]
+    if let Some(result) = crate::platform::windows::ryadom_install::startup() {
+        return result.err().map(CoreMainAction::ExitFailure);
+    }
+    #[cfg(feature = "ryadom")]
+    if let Err(err)=crate::ryadom::init() { return Some(CoreMainAction::ExitFailure(err)); }
     let mut args = Vec::new();
     let mut flutter_args = Vec::new();
     let mut i = 0;
@@ -93,6 +102,12 @@ pub fn core_main() -> Option<CoreMainAction> {
             }
         }
         i += 1;
+    }
+    #[cfg(all(feature = "ryadom", windows))]
+    match crate::ryadom::cli(&args) {
+        Ok(true) => return None,
+        Err(error) => return Some(CoreMainAction::ExitFailure(error)),
+        Ok(false) => {}
     }
     #[cfg(any(target_os = "linux", target_os = "windows"))]
     if args.is_empty() {
@@ -188,7 +203,7 @@ pub fn core_main() -> Option<CoreMainAction> {
         return try_send_by_dbus(args[0].clone()).map(CoreMainAction::StartUi);
     }
 
-    #[cfg(windows)]
+    #[cfg(all(windows, not(feature = "ryadom")))]
     if !crate::platform::is_installed()
         && args.is_empty()
         && _is_quick_support
@@ -287,6 +302,10 @@ pub fn core_main() -> Option<CoreMainAction> {
                 }
                 let (printer_override, debug) = parse_silent_install_args(&args);
                 let options = platform::get_silent_install_options(printer_override);
+                #[cfg(feature = "ryadom")]
+                let ryadom_options = platform::windows::ryadom_autostart::silent_options(options,&args);
+                #[cfg(feature = "ryadom")]
+                let options = ryadom_options.as_str();
                 let res = platform::install_me(options, "".to_owned(), true, debug);
                 let text = match res {
                     Ok(_) => translate("Installation Successful!".to_string()),

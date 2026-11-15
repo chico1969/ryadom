@@ -1,0 +1,20 @@
+{
+  "repository": "https://github.com/rustdesk/rustdesk.git",
+  "tag": "1.5.3",
+  "commit": "95cca3f661f635b3cc85c04935fe8d96d8f432ef",
+  "submodules": {
+    "libs/hbb_common": "fae47e024dd83cef6aaecde0aa7d11731df11649"
+  },
+  "license": "AGPL-3.0",
+  "product": "Рядом",
+  "releaseStatus": "development",
+  "network": {
+    "signalingProvider": "peerjs-cloud",
+    "userApiKeyRequired": false,
+    "relayAllowed": true,
+    "familyTurnProvider": "ExpressTURN",
+    "familyTurnFeature": "ryadom-bundled-turn",
+    "familyTurnProtection": "recoverable obfuscation; owner-authorized private prototype",
+    "signalingMayCarrySessionData": false
+  }
+}

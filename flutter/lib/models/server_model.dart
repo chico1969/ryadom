@@ -535,6 +535,14 @@ class ServerModel with ChangeNotifier {
   void addConnection(Map<String, dynamic> evt) {
     try {
       final client = Client.fromJson(jsonDecode(evt["client"]));
+      if (const bool.fromEnvironment('RYADOM') && !client.authorized) {
+        final stale = _clients.indexWhere((c) => c.id == client.id &&
+            (c.authorized || c.disconnected));
+        if (stale >= 0) {
+          _clients.removeAt(stale);
+          tabController.remove(stale);
+        }
+      }
       if (client.authorized) {
         parent.target?.dialogManager.dismissByTag(getLoginDialogTag(client.id));
         final index = _clients.indexWhere((c) => c.id == client.id);
@@ -589,7 +597,7 @@ class ServerModel with ChangeNotifier {
       if (!hideCm) windowOnTop(null);
     });
     // Only do the hidden task when on Desktop.
-    if (client.authorized && isDesktop) {
+    if (client.authorized && isDesktop && !const bool.fromEnvironment('RYADOM')) {
       cmHiddenTimer = Timer(const Duration(seconds: 3), () {
         if (!hideCm) windowManager.minimize();
         cmHiddenTimer = null;

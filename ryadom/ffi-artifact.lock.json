@@ -1,0 +1,11 @@
+{
+  "repository":"rustdesk/rustdesk",
+  "artifactId":14025514170,
+  "runId":43399098776,
+  "sourceCommit":"6837cb96eb08e1051b6000495903cc4b6b29c50f",
+  "sha256":"7597a8c58c7758e6eb9c12f8f2bf381ce97e2e366bc6b0c86a989e32bcf98d44",
+  "ffiInputGitBlob":"0d6ca0ab5da47440a44ebfc441bcb5527d225715",
+  "compatibleWith":"95cca3f661f635b3cc85c04935fe8d96d8f432ef",
+  "verification":"flutter_ffi.rs is byte-identical; flutter.rs, imported Rust type definitions, bridge workflow and Flutter pubspec are unchanged between these commits",
+  "generatedLocally":false
+}

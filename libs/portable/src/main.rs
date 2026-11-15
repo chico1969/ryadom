@@ -9,6 +9,7 @@ use bin_reader::{normalize_path, BinaryReader};
 
 pub mod bin_reader;
 #[cfg(windows)]
+#[cfg_attr(ryadom_build, path = "../../../ryadom/windows/portable_ui.rs")]
 mod ui;
 
 #[cfg(windows)]
@@ -29,6 +30,7 @@ const SET_FOREGROUND_WINDOW_ENV_KEY: &str = "SET_FOREGROUND_WINDOW";
 // custom client gets its own directory instead of sharing RustDesk's. Falls back to
 // APP_PREFIX when no package is injected, which keeps stock builds unchanged.
 fn app_dir_name(exe: &str) -> String {
+    if option_env!("RYADOM_BUILD").is_some() { return "ryadom".to_owned(); }
     Path::new(&exe.replace('\\', "/"))
         .file_stem()
         .and_then(|stem| stem.to_str())
@@ -283,7 +285,8 @@ fn main() -> Result<(), String> {
         }
         i += 1;
     }
-    let click_setup = args.is_empty() && arg_exe.to_lowercase().ends_with("install.exe");
+    let click_setup = args.is_empty() && (arg_exe.to_lowercase().ends_with("install.exe")
+        || (option_env!("RYADOM_BUILD").is_some() && arg_exe.to_lowercase().ends_with("ryadom-setup.exe")));
     #[cfg(windows)]
     let quick_support = args.is_empty() && win::is_quick_support_exe(&arg_exe);
     #[cfg(not(windows))]

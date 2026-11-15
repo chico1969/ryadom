@@ -310,6 +310,11 @@ impl RendezvousMediator {
     }
 
     pub async fn start_all() {
+        #[cfg(feature = "ryadom")]
+        {
+            crate::ryadom::listen(new_server()).await;
+            return;
+        }
         crate::test_nat_type();
         if config::is_outgoing_only() {
             loop {

@@ -4,6 +4,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hbb/common.dart';
+import 'package:flutter_hbb/ryadom/session_hints.dart';
+import 'package:flutter_hbb/ryadom/codec_auto.dart';
 import 'package:flutter_hbb/common/shared_state.dart';
 import 'package:flutter_hbb/common/widgets/dialog.dart';
 import 'package:flutter_hbb/common/widgets/login.dart';
@@ -470,7 +472,9 @@ List<TTextMenu> toolbarControls(BuildContext context, String id, FFI ffi) {
       ffi.elevationModel.showRequestMenu) {
     v.add(
       TTextMenu(
-          child: Text(translate('Request Elevation')),
+          child: const bool.fromEnvironment('RYADOM')
+              ? const Tooltip(message: 'Отдельный запрос прав администратора на удалённом ПК. Для обычной работы с рабочим столом повышение не требуется. Понадобится подтверждение Windows или данные администратора.', child: Text('Повысить права на удалённом ПК…'))
+              : Text(translate('Request Elevation')),
           onPressed: () =>
               showRequestElevationDialog(sessionId, ffi.dialogManager)),
     );
@@ -503,7 +507,9 @@ List<TTextMenu> toolbarControls(BuildContext context, String id, FFI ffi) {
       pi.platform != kPeerPlatformAndroid &&
       perms['keyboard'] != false) {
     v.add(TTextMenu(
-        child: Text(translate('Send clipboard keystrokes')),
+        child: const bool.fromEnvironment('RYADOM')
+            ? const Tooltip(message: ryadomClipboardHelp, child: Text(ryadomClipboardAction))
+            : Text(translate('Send clipboard keystrokes')),
         onPressed: () async {
           Future<void> sendClipboardKeystrokes() async {
             ClipboardData? data = await Clipboard.getData(Clipboard.kTextPlain);
@@ -878,9 +884,12 @@ Future<List<TRadioMenu<String>>> toolbarCodec(
   final sessionId = ffi.sessionId;
   final alternativeCodecs =
       await bind.sessionAlternativeCodecs(sessionId: sessionId);
-  final groupValue = await bind.sessionGetOption(
+  var groupValue = await bind.sessionGetOption(
           sessionId: sessionId, arg: kOptionCodecPreference) ??
       '';
+  if (const bool.fromEnvironment('RYADOM') && groupValue.isEmpty) groupValue = 'auto';
+  if (const bool.fromEnvironment('RYADOM') &&
+      await bind.sessionGetPeerOption(sessionId:sessionId,name:ryadomCodecAutoKey) == 'Y') groupValue = 'auto';
   final List<bool> codecs = [];
   try {
     final Map codecsJson = jsonDecode(alternativeCodecs);
@@ -903,6 +912,9 @@ Future<List<TRadioMenu<String>>> toolbarCodec(
   }
   onChanged(String? value) async {
     if (value == null) return;
+    if (const bool.fromEnvironment('RYADOM')) {
+      await ryadomCodecController(ffi).select(value);return;
+    }
     await bind.sessionPeerOption(
         sessionId: sessionId, name: kOptionCodecPreference, value: value);
     bind.sessionChangePreferCodec(sessionId: sessionId);
@@ -911,7 +923,9 @@ Future<List<TRadioMenu<String>>> toolbarCodec(
   TRadioMenu<String> radio(
       String label, String value, bool enabled, String actionId) {
     return TRadioMenu<String>(
-        child: Text(label),
+        child: const bool.fromEnvironment('RYADOM') && value == 'auto'
+            ? Tooltip(message: 'Проверить доступные кодеки в текущем сеансе при одинаковом качестве: сравнить FPS, задержку и трафик. Во время проверки прокрутите документ или перемещайте окно.', child: Text(label))
+            : Text(label),
         value: value,
         groupValue: groupValue,
         onChanged: enabled ? onChanged : null,
@@ -919,6 +933,7 @@ Future<List<TRadioMenu<String>>> toolbarCodec(
   }
 
   var autoLabel = translate('Auto');
+  if (const bool.fromEnvironment('RYADOM')) autoLabel = 'Авто — проверка кодеков';
   if (groupValue == 'auto' &&
       ffi.qualityMonitorModel.data.codecFormat != null) {
     autoLabel = '$autoLabel (${ffi.qualityMonitorModel.data.codecFormat})';
@@ -941,7 +956,7 @@ Future<List<TToggleMenu>> toolbarCursor(
   final sessionId = ffi.sessionId;
 
   // show remote cursor
-  if (pi.platform != kPeerPlatformAndroid &&
+  if (!const bool.fromEnvironment('RYADOM') && pi.platform != kPeerPlatformAndroid &&
       !ffi.canvasModel.cursorEmbedded &&
       !pi.isWayland) {
     final state = ShowRemoteCursorState.find(id);

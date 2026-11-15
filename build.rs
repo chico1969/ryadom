@@ -90,6 +90,10 @@ fn install_android_deps() {
     println!("cargo:rustc-link-lib=OpenSLES");
 }
 
+#[cfg(all(windows, feature = "ryadom"))]
+#[path = "ryadom/signing/windows_resource.rs"]
+mod ryadom_signing_resource;
+
 fn main() {
     hbb_common::gen_version();
     install_android_deps();
@@ -97,6 +101,8 @@ fn main() {
     build_manifest();
     #[cfg(windows)]
     build_windows();
+    #[cfg(all(windows, feature = "ryadom"))]
+    ryadom_signing_resource::build_dll();
     let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap();
     if target_os == "macos" {
         #[cfg(target_os = "macos")]

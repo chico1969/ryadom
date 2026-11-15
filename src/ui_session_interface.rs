@@ -856,6 +856,8 @@ impl<T: InvokeUiSession> Session<T> {
     }
 
     pub fn switch_display(&self, display: i32) {
+        #[cfg(feature="ryadom")]
+        {let lc=self.lc.read().unwrap();crate::ryadom::resume::set_monitor(lc.get_id(),lc.session_id,display);}
         let (w, h) = match self.lc.read().unwrap().get_custom_resolution(display) {
             Some((w, h)) => (w, h),
             None => (0, 0),
@@ -1798,6 +1800,19 @@ impl<T: InvokeUiSession> Interface for Session<T> {
     }
 
     fn msgbox(&self, msgtype: &str, title: &str, text: &str, link: &str) {
+        #[cfg(feature = "ryadom")]
+        if title=="Connection Error" || (msgtype=="restarting-show" && title=="Connecting...") {
+            let lc=self.lc.read().unwrap();let sid=lc.session_id;let kind=lc.conn_type;drop(lc);
+            if let Some(seconds)=crate::ryadom::resume::lost(&self.get_id(),sid,kind as i32) {
+                self.ui_handler.msgbox("ryadom-reconnecting","Восстанавливаем связь",&seconds.to_string(),"",true);
+                return;
+            }
+            if crate::ryadom::resume::status(&self.get_id(),sid,kind as i32)["supported"]==true {
+                if kind==ConnType::DEFAULT_CONN{crate::ryadom::resume::forget(&self.get_id(),sid);}
+                self.ui_handler.msgbox("error","Восстановление завершено","Не удалось восстановить связь за 5 минут. Подключитесь заново.","",false);
+                return;
+            }
+        }
         let direct = self.lc.read().unwrap().direct;
         let received = self.lc.read().unwrap().received;
         let retry_for_relay = direct == Some(true) && !received;
@@ -1814,6 +1829,14 @@ impl<T: InvokeUiSession> Interface for Session<T> {
     }
 
     fn handle_peer_info(&self, mut pi: PeerInfo) {
+        #[cfg(feature="ryadom")]
+        {
+            let lc=self.lc.read().unwrap();
+            let monitor=crate::ryadom::resume::monitor(lc.get_id(),lc.session_id);drop(lc);
+            if let Some(display)=monitor.filter(|d|*d>=0&&(*d as usize)<pi.displays.len()){
+                pi.current_display=display;self.switch_display(display);
+            }
+        }
         log::debug!("handle_peer_info :{:?}", pi);
         self.lc.write().unwrap().peer_info = Some(pi.clone());
         if pi.current_display as usize >= pi.displays.len() {

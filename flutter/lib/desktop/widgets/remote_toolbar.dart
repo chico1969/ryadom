@@ -1,5 +1,12 @@
 import 'dart:convert';
 import 'dart:async';
+import 'package:flutter_hbb/ryadom/transport_badge.dart';
+import 'package:flutter_hbb/ryadom/p2p_panel.dart';
+import 'package:flutter_hbb/ryadom/recovery.dart';
+import 'package:flutter_hbb/ryadom/session_hints.dart';
+import 'package:flutter_hbb/ryadom/codec_auto.dart';
+import 'package:flutter_hbb/ryadom/native_control_stub.dart'
+    if (dart.library.io) 'package:flutter_hbb/ryadom/native_control.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -734,7 +741,7 @@ class _RemoteToolbarState extends State<RemoteToolbar> {
               return _buildDragPreview(context, pe, pf, _toolbarSize.value);
             }),
           ),
-          toolbar,
+          const bool.fromEnvironment('RYADOM') ? RyadomSessionHints(child: toolbar) : toolbar,
         ],
       );
     });
@@ -803,6 +810,13 @@ class _RemoteToolbarState extends State<RemoteToolbar> {
   Widget _buildToolbar(
       BuildContext context, _ToolbarEdge edge, bool isHorizontal) {
     final List<Widget> toolbarItems = [];
+    if (const bool.fromEnvironment('RYADOM')) {
+      toolbarItems.add(RyadomTransportBadge(peerId:widget.id));
+      toolbarItems.add(RyadomP2PButton(session:widget.ffi.sessionId.toString()));
+        toolbarItems.add(RyadomRecoveryNotice(session:widget.ffi.sessionId.toString()));
+      toolbarItems.add(RyadomControlButton(session:widget.ffi.sessionId.toString()));
+      toolbarItems.add(RyadomCodecButton(ffi:widget.ffi));
+    }
     toolbarItems.add(_PinMenu(state: widget.state));
     toolbarItems.add(Obx(() {
       final privacyModeState = PrivacyModeState.find(widget.id);
@@ -2587,7 +2601,7 @@ class _KeyboardMenu extends StatelessWidget {
               viewMode(),
               if ([kPeerPlatformWindows, kPeerPlatformMacOS, kPeerPlatformLinux]
                   .contains(pi.platform))
-                showMyCursor(),
+                if (!const bool.fromEnvironment('RYADOM')) showMyCursor(),
               Divider(),
               ...toolbarToggles(),
               ...mouseSpeed(),
@@ -2660,11 +2674,14 @@ class _KeyboardMenu extends StatelessWidget {
         }
 
         var text = translate(mode.menu);
+        if (const bool.fromEnvironment('RYADOM')) text = ryadomKeyboardLabel(mode.key);
         if (mode.key == kKeyTranslateMode) {
           text = '$text beta';
         }
         list.add(RdoMenuButton<String>(
-          child: Text(text),
+          child: const bool.fromEnvironment('RYADOM')
+              ? Tooltip(message: ryadomKeyboardHelp(mode.key), child: Text(text))
+              : Text(text),
           value: mode.key,
           groupValue: groupValue,
           onChanged: enabled ? onChanged : null,
@@ -2713,7 +2730,9 @@ class _KeyboardMenu extends StatelessWidget {
     children.addAll(supportedInputSourceList.map((e) {
       final d = e as List<dynamic>;
       return RdoMenuButton<String>(
-        child: Text(translate(d[1] as String)),
+        child: const bool.fromEnvironment('RYADOM')
+            ? Tooltip(message: ryadomInputSourceHelp(d[0] as String), child: Text(ryadomInputSourceLabel(d[0] as String)))
+            : Text(translate(d[1] as String)),
         value: d[0] as String,
         groupValue: inputSource,
         onChanged: enabled
@@ -2752,7 +2771,9 @@ class _KeyboardMenu extends StatelessWidget {
               }
             : null,
         ffi: ffi,
-        child: Text(translate('View Mode')));
+        child: const bool.fromEnvironment('RYADOM')
+            ? const Tooltip(message: ryadomViewOnlyHelp, child: Text(ryadomViewOnlyLabel))
+            : Text(translate('View Mode')));
   }
 
   showMyCursor() {

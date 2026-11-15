@@ -102,6 +102,10 @@ mod installer_handoff;
 mod installer_shell;
 mod verified_update;
 mod msi_registry;
+#[cfg(feature = "ryadom")]
+pub(crate) mod ryadom_install;
+#[cfg(feature = "ryadom")]
+pub(crate) mod ryadom_autostart;
 pub(crate) use acl::current_process_user_sid_string;
 pub use acl::{
     set_path_permission, set_path_permission_for_portable_service_shmem_dir,
@@ -1372,6 +1376,8 @@ pub fn get_install_options() -> String {
     let app_name = crate::get_app_name();
     let subkey = format!(".{}", app_name.to_lowercase());
     let mut opts = HashMap::new();
+    #[cfg(feature = "ryadom")]
+    opts.insert("RYADOMAUTOSTART", if ryadom_autostart::preference() { "1" } else { "0" }.to_owned());
 
     let desktop_shortcuts = get_reg_of_hkcr(&subkey, REG_NAME_INSTALL_DESKTOPSHORTCUTS);
     if let Some(desktop_shortcuts) = desktop_shortcuts {
@@ -1773,6 +1779,12 @@ copy /Y \"{tmp_path}\\{app_name} Tray.lnk\" \"%PROGRAMDATA%\\Microsoft\\Windows\
     // Remember to check if `update_me` need to be changed if changing the `cmds`.
     // No need to merge the existing dup code, because the code in these two functions are too critical.
     // New code should be written in a common function.
+    #[cfg(feature = "ryadom")]
+    let (import_config, migration_file) = ryadom_install::prepare(&exe)?;
+    #[cfg(not(feature = "ryadom"))]
+    let import_config = get_import_config(&exe);
+    #[cfg(feature = "ryadom")]
+    let after_install = format!("{after_install}\r\n{}",ryadom_autostart::install_commands(options));
     let cmds = format!(
         "
 {uninstall_str}
@@ -1810,13 +1822,16 @@ copy /Y \"{tmp_path}\\Uninstall {app_name}.lnk\" \"{path}\\\"
         sleep = if debug { "timeout 300" } else { "" },
         dels = if debug { "" } else { &dels },
         copy_exe = copy_exe_cmd(&src_exe, &exe, &path)?,
-        import_config = get_import_config(&exe),
+        import_config = import_config,
     );
-    run_cmds(
-        InstallCommands {
+    let mut install_commands = InstallCommands {
             script: cmds,
             files: vec![mk_shortcut_file, uninstall_shortcut_file, tray_shortcut_file],
-        },
+        };
+    #[cfg(feature = "ryadom")]
+    if let Some(file) = migration_file { install_commands.files.push(file); }
+    run_cmds(
+        install_commands,
         debug,
         "install",
     )?;
@@ -3434,6 +3449,8 @@ copy /Y \"%RUSTDESK_OUTPUT_DIR%\\{app_name} Tray.lnk\" \"%PROGRAMDATA%\\Microsof
         import_config = get_import_config(exe),
         create_service = service_control_command("create-service-with-rollback", exe, false)?,
     );
+    #[cfg(feature = "ryadom")]
+    let script = format!("{script}\r\n{}",ryadom_autostart::install_commands(""));
     Ok(InstallCommands {
         script,
         files: vec![tray_shortcut_file],

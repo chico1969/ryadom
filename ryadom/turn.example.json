@@ -1,0 +1,7 @@
+[
+  {
+    "urls": ["turn:relay.example.com:3478", "turns:relay.example.com:443?transport=tcp"],
+    "username": "replace-with-turn-username",
+    "credential": "replace-with-turn-password"
+  }
+]

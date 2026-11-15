@@ -1,0 +1,113 @@
+{
+  "releaseReady": false,
+  "required": [
+    {
+      "id": "native-build",
+      "status": "passed",
+      "description": "Настоящие Ryadom.exe и Ryadom-Setup.exe"
+    },
+    {
+      "id": "local-installer-service",
+      "status": "passed",
+      "description": "15.11.2026, один физический ПК: установка/обновление с UAC, EXE/DLL/AOT, Auto LocalSystem, перезапуск службы и прямой подписанный WebRTC до авторизации",
+      "evidence": "build-logs/installed-service-check.json"
+    },
+    {
+      "id": "portable-to-setup",
+      "status": "passed",
+      "description": "Один физический ПК: portable → Setup, те же цифровой ID, ключ устройства, постоянный пароль и настройки; настоящий вход до и после; исходная конфигурация восстановлена; обновление установленной версии также сохраняет её данные",
+      "evidence": "build-logs/portable-migration-physical.json"
+    },
+    {
+      "id": "autostart",
+      "status": "passed-local-boot-pending",
+      "description": "Один физический ПК: оба положения локального API без перезапуска службы, Setup выключен/обновление сохраняет выключение/включен, ID и пароль/соль/настройки сохранены, все файлы совпали. Исходный Auto/трей/1 восстановлен. Перезагрузка отдельно не выполнялась.",
+      "evidence": "build-logs/autostart-physical.json"
+    },
+    {
+      "id": "physical-p2p",
+      "status": "pending",
+      "description": "Два физических ПК в разных сетях, EXE↔EXE и браузер↔EXE: прямое соединение и резерв TURN, индикатор соответствует выбранной ICE-паре"
+    },
+    {
+      "id": "windows-matrix",
+      "status": "pending",
+      "description": "Windows 10/11 Home/Pro, переносной/установленный режим, Chrome/Edge"
+    },
+    {
+      "id": "unattended",
+      "status": "pending",
+      "description": "Блокировка, вход Windows, UAC, перезагрузка, восстановление"
+    },
+    {
+      "id": "network-failures",
+      "status": "pending",
+      "description": "Нет P2P, отказ/ограничения службы поиска и квота TURN, обрыв интернета и частота повторов"
+    },
+    {
+      "id": "authentication",
+      "status": "pending",
+      "description": "Пароль, одноразовое разрешение и запрет команд до авторизации на Windows-хосте"
+    },
+    {
+      "id": "trusted-devices",
+      "status": "pending",
+      "description": "Сопряжение и отзыв отдельного доверенного устройства без 2FA"
+    },
+    {
+      "id": "control",
+      "status": "pending",
+      "description": "Два клиента, передача управления, запрет записи/терминала наблюдателю и освобождение ввода"
+    },
+    {
+      "id": "files",
+      "status": "pending",
+      "description": "Полный менеджер, drag-and-drop, восстановление, большие файлы и SHA256"
+    },
+    {
+      "id": "clipboard",
+      "status": "pending",
+      "description": "Кириллица и буфер файлов Windows; разрешения браузера"
+    },
+    {
+      "id": "monitors-input",
+      "status": "pending",
+      "description": "Разный DPI, мониторы, раскладки и сочетания клавиш"
+    },
+    {
+      "id": "audio-recording",
+      "status": "pending",
+      "description": "Настоящий звук и воспроизводимая запись на диск в обоих клиентах"
+    },
+    {
+      "id": "performance",
+      "status": "pending",
+      "description": "1080p/30 FPS, адаптация и измерения задержки/CPU/FPS"
+    },
+    {
+      "id": "branding",
+      "status": "pending",
+      "description": "Все Windows-окна, значки и метаданные Рядом"
+    },
+    {
+      "id": "distribution",
+      "status": "pending",
+      "description": "Исходники, хеши, инструкция, бинарные пакеты и Firebase Spark без оплаты"
+    },
+    {
+      "id": "p2p-helper",
+      "status": "pending",
+      "description": "PCP/NAT-PMP/UPnP на реальных роутерах; UAC/отказ, меньшая аренда, сбой продления и удаление только своего правила"
+    },
+    {
+      "id": "lease-hour",
+      "status": "pending",
+      "description": "Настоящий P2P дольше часа с несколькими продлениями без замены порта/планового отключения, включая трей и службу"
+    },
+    {
+      "id": "session-resume",
+      "status": "pending",
+      "description": "Два физических ПК: восстановление до 5 минут с сохранением монитора/управления, срок, ручной отзыв и отсутствие повторов ввода/команд"
+    }
+  ]
+}

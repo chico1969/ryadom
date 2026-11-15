@@ -1,6 +1,21 @@
 cmake_minimum_required(VERSION 3.14)
 project(runner LANGUAGES CXX)
 
+set(RUNNER_RESOURCE "Runner.rc")
+if("$ENV{RYADOM_BUILD}" STREQUAL "1")
+  get_filename_component(RYADOM_PRODUCT_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../.." ABSOLUTE)
+  configure_file("${RYADOM_PRODUCT_ROOT}/ryadom/windows/Runner.rc.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/Ryadom.rc" @ONLY)
+  set(RUNNER_RESOURCE "${CMAKE_CURRENT_BINARY_DIR}/Ryadom.rc")
+  if(DEFINED ENV{RYADOM_SIGNING_VERSION})
+    set(RYADOM_SIGNING_VERSION "$ENV{RYADOM_SIGNING_VERSION}")
+    string(REPLACE "." "," RYADOM_SIGNING_VERSION_COMMAS "${RYADOM_SIGNING_VERSION}")
+    configure_file("${RYADOM_PRODUCT_ROOT}/ryadom/signing/Runner.rc.in"
+      "${CMAKE_CURRENT_BINARY_DIR}/RyadomSigning.rc" @ONLY)
+    set(RUNNER_RESOURCE "${CMAKE_CURRENT_BINARY_DIR}/RyadomSigning.rc")
+  endif()
+endif()
+
 # Define the application target. To change its name, change BINARY_NAME in the
 # top-level CMakeLists.txt, not the value here, or `flutter run` will no longer
 # work.
@@ -13,7 +28,7 @@ add_executable(${BINARY_NAME} WIN32
   "win32_desktop.cpp"
   "win32_window.cpp"
   "${FLUTTER_MANAGED_DIR}/generated_plugin_registrant.cc"
-  "Runner.rc"
+  "${RUNNER_RESOURCE}"
   "runner.exe.manifest"
 )
 
