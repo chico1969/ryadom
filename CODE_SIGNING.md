@@ -14,8 +14,9 @@ This is an independent fork, not an official RustDesk release.
 ## Repository and roles
 
 The public repository is <https://github.com/chico1969/ryadom>, created as a
-visible fork. Publication of the reviewed Ryadom changes and a development
-release is still in progress. See [the application worksheet](ryadom/signing/APPLICATION.md).
+visible fork. Ryadom development sources are published on its `ryadom` branch;
+CI validation and a public binary release are still in progress.
+See [the application worksheet](ryadom/signing/APPLICATION.md).
 The upstream Git remote is not the destination for Ryadom releases.
 
 Project owner [chico1969](https://github.com/chico1969) will be the committer,

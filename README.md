@@ -7,6 +7,8 @@
 <p align="center"><strong>Удалённая помощь близким. Где бы вы ни были.</strong></p>
 <p align="center">Windows 10/11 · Rust + Flutter · GNU AGPL-3.0 · В разработке</p>
 
+<p align="center"><a href="#english-summary">English summary</a> · Русский</p>
+
 <p align="center">
   <a href="#быстрый-старт">Начать</a> ·
   <a href="ROADMAP.md">Планы</a> ·
@@ -86,3 +88,16 @@
 
 Код «Рядом» распространяется под [GNU AGPL version 3](LICENCE).
 Это независимый проект, не официальный выпуск RustDesk.
+
+## English summary
+
+Ryadom is an independent AGPL-3.0 fork of RustDesk 1.5.3 for Windows remote
+assistance to family and known users. It focuses on a simple Russian interface,
+portable and installed modes, short device IDs, consent-based access, WebRTC
+P2P and an optional user-configured TURN fallback.
+
+Development sources are public; a stable signed public binary release is not
+available yet. The public build contains no family TURN credentials and does
+not provide unlimited free relay service. Testing and contributions are welcome.
+See [contributing](CONTRIBUTING.md), [privacy](PRIVACY.md),
+[security](SECURITY.md), [code signing](CODE_SIGNING.md) and [roadmap](ROADMAP.md).

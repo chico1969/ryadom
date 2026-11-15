@@ -6,8 +6,8 @@ resolved. Do not invent users, contributors, reviews or public reputation.
 | Field | Proposed answer |
 | --- | --- |
 | Project name | Ryadom (Рядом) |
-| Repository | https://github.com/chico1969/ryadom (created; Ryadom changes being prepared for publication) |
-| Homepage | https://github.com/chico1969/ryadom (after source publication) |
+| Repository | https://github.com/chico1969/ryadom (public fork, default branch ryadom) |
+| Homepage | https://github.com/chico1969/ryadom |
 | Download page | TO_FILL: actual development release URL |
 | License | GNU AGPL version 3; upstream notices retained |
 | Privacy policy | PRIVACY.md in the public fork; copy its actual URL after publication |
@@ -33,8 +33,7 @@ Upstream source: https://github.com/rustdesk/rustdesk
 Upstream release: https://github.com/rustdesk/rustdesk/releases/tag/1.5.3
 Pinned base commit: 95cca3f661f635b3cc85c04935fe8d96d8f432ef
 
-The public fork has been created. Our current local Ryadom changes have not yet
-been published to it. The official upstream Windows
+The public fork and Ryadom development sources are published. The official upstream Windows
 x64 1.5.3 download was checked locally with Windows Authenticode on 15 November
 2026: valid signature, publisher `PURSLANE`, timestamp present, SHA256
 `523ba0efbf62a21739961b62c7daaffb44d3da86139c546b364fd4e1333ed249`.
