@@ -149,7 +149,7 @@ index 5039545..dae4498 100644
  pub use directories_next;
  pub use libc;
 diff --git a/src/webrtc.rs b/src/webrtc.rs
-index f33f914..a891cc1 100644
+index f33f914..e2ca3c4 100644
 --- a/src/webrtc.rs
 +++ b/src/webrtc.rs
 @@ -103,6 +103,28 @@ pub struct WebRTCStream {
@@ -218,7 +218,19 @@ index f33f914..a891cc1 100644
  /// Largest logical message this transport will send or reassemble, and the memory an
  /// unauthenticated peer can make a receiver hold. Kept at parity with TCP on purpose: one session
  /// moves between both paths, so a transport-specific ceiling would kill it on the other one.
-@@ -254,11 +299,23 @@ impl Clone for WebRTCStream {
+@@ -182,9 +227,8 @@ lazy_static::lazy_static! {
+     // cancelled after `RTCPeerConnection::close` latches `is_closed` is unretryable, stranding
+     // the pc in SESSIONS). Data-plane futures (send/recv/close) may be polled from any caller
+     // runtime — cross-runtime polling is fine; only the OWNING driver must stay alive. Two
+-    // workers so one busy session cannot starve the rest. This is the one deliberate exception
+-    // to AGENTS.md's no-runtime-in-libraries rule: a single lazily-built runtime for I/O whose
+-    // lifetime exceeds any caller's.
++    // workers so one busy session cannot starve the rest. The single lazily-built I/O runtime
++    // outlives every caller.
+     static ref WEBRTC_RT: Option<tokio::runtime::Runtime> = tokio::runtime::Builder::new_multi_thread()
+         .worker_threads(2)
+         .thread_name("webrtc-io")
+@@ -254,11 +298,23 @@ impl Clone for WebRTCStream {
              rx_probe: self.rx_probe.clone(),
              disconnected: self.disconnected.clone(),
              max_recv_message: self.max_recv_message.clone(),
@@ -242,7 +254,7 @@ index f33f914..a891cc1 100644
      #[inline]
      fn get_remote_offer(endpoint: &str) -> ResultType<String> {
          // Ensure the endpoint starts with the "webrtc://" prefix
-@@ -506,6 +563,18 @@ impl WebRTCStream {
+@@ -506,6 +562,18 @@ impl WebRTCStream {
  
      #[inline]
      fn get_ice_servers() -> Vec<RTCIceServer> {
@@ -261,7 +273,7 @@ index f33f914..a891cc1 100644
          Self::parse_ice_servers(&config::Config::get_option(
              config::keys::OPTION_ICE_SERVERS,
          ))
-@@ -578,7 +647,7 @@ impl WebRTCStream {
+@@ -578,7 +646,7 @@ impl WebRTCStream {
              return Err(anyhow::anyhow!("WebRTC I/O runtime unavailable"));
          };
          let remote_endpoint = remote_endpoint.to_owned();
@@ -270,7 +282,7 @@ index f33f914..a891cc1 100644
              .await
              .map_err(|err| anyhow::anyhow!("WebRTC setup task failed: {}", err))??
              .into_inner()
-@@ -589,6 +658,7 @@ impl WebRTCStream {
+@@ -589,6 +657,7 @@ impl WebRTCStream {
          remote_endpoint: String,
          force_relay: bool,
          ms_timeout: u64,
@@ -278,7 +290,7 @@ index f33f914..a891cc1 100644
      ) -> ResultType<NewStreamHandoff> {
          // The endpoint contains a Base64-encoded SDP with host addresses and live ICE
          // credentials. Log only its size so debug logs cannot disclose that information.
-@@ -604,7 +674,7 @@ impl WebRTCStream {
+@@ -604,7 +673,7 @@ impl WebRTCStream {
  
          let mut key = Self::get_key_for_sdp_json(&remote_offer)?;
          let start_local_offer = remote_offer.is_empty();
@@ -287,7 +299,7 @@ index f33f914..a891cc1 100644
              // Claim inside the lock: `close_if_abandoned` commits under it too, so this hit
              // either registers in time to call that close off, or finds the entry already rejected.
              let cached = {
-@@ -646,6 +716,18 @@ impl WebRTCStream {
+@@ -646,6 +715,18 @@ impl WebRTCStream {
              IpAddr::V6(v6) => v6.segments()[0] & 0xffc0 != 0xfe80,
              IpAddr::V4(_) => true,
          }));
@@ -306,7 +318,7 @@ index f33f914..a891cc1 100644
  
          // KCP's nc=1 profile by default, with the same opt-in to a congestion window as
          // `allow-kcp-congestion-control`, for the reason given at `get_kcp_cc_enabled`. Set per
-@@ -657,7 +739,15 @@ impl WebRTCStream {
+@@ -657,7 +738,15 @@ impl WebRTCStream {
  
          // Prepare the configuration, get ICE servers from config
          let config = RTCConfiguration {
@@ -323,7 +335,7 @@ index f33f914..a891cc1 100644
              ice_transport_policy: if force_relay {
                  RTCIceTransportPolicy::Relay
              } else {
-@@ -677,6 +767,7 @@ impl WebRTCStream {
+@@ -677,6 +766,7 @@ impl WebRTCStream {
          // there rather than with the session; the terminal-state handler below drops this closure
          // for a pc that dies before it gets that far.
          let mut local_ice_tx = Some(ice_tx);
@@ -331,7 +343,7 @@ index f33f914..a891cc1 100644
          pc.on_ice_candidate(Box::new(move |candidate| {
              let Some(candidate) = candidate else {
                  local_ice_tx = None;
-@@ -687,13 +778,23 @@ impl WebRTCStream {
+@@ -687,13 +777,23 @@ impl WebRTCStream {
              };
              Box::pin(async move {
                  match candidate.to_json() {
@@ -356,7 +368,7 @@ index f33f914..a891cc1 100644
                      },
                      Err(err) => {
                          log::warn!("failed to convert local ICE candidate to JSON: {}", err);
-@@ -906,6 +1007,7 @@ impl WebRTCStream {
+@@ -906,6 +1006,7 @@ impl WebRTCStream {
              rx_probe: RxProbe::new(),
              disconnected,
              max_recv_message: Arc::new(AtomicUsize::new(MAX_RECV_MESSAGE)),
@@ -364,7 +376,7 @@ index f33f914..a891cc1 100644
          };
          // Insert into the session cache, but never `await pc.close()` while holding this lock:
          // `close()` fires the peer-connection-state handler inline, which itself locks SESSIONS,
-@@ -1075,11 +1177,15 @@ impl WebRTCStream {
+@@ -1075,11 +1176,15 @@ impl WebRTCStream {
          }
          let dtls = self.pc.sctp().transport();
          let pair = dtls.ice_transport().get_selected_candidate_pair().await?;
@@ -380,7 +392,7 @@ index f33f914..a891cc1 100644
          Some(
              pair.to_string()
                  .split(" <-> ")
-@@ -1422,8 +1528,19 @@ impl WebRTCStream {
+@@ -1422,8 +1527,19 @@ impl WebRTCStream {
          Ok(())
      }
  
@@ -400,7 +412,7 @@ index f33f914..a891cc1 100644
          if let Err(err) = self.wait_for_connect_result().await {
              self.close_detached();
              return Some(Err(Error::new(ErrorKind::Other, err.to_string())));
-@@ -1442,7 +1559,7 @@ impl WebRTCStream {
+@@ -1442,7 +1558,7 @@ impl WebRTCStream {
          // until a packet arrives — is a state the design does not permit anyway.
          let mut st = self.recv_state.lock().await;
          loop {
@@ -409,7 +421,7 @@ index f33f914..a891cc1 100644
              if scratch.len() < RECV_BUF_SIZE {
                  scratch.resize(SCRATCH_REFILL, 0);
              }
-@@ -2024,9 +2141,12 @@ IHR5cCBzcmZseCByYWRkciAwLjAuMC4wIHJwb3J0IDY0MDA4XHJcbmE9ZW5kLW9mLWNhbmRpZGF0ZXNc
+@@ -2024,9 +2140,12 @@ IHR5cCBzcmZseCByYWRkciAwLjAuMC4wIHJwb3J0IDY0MDA4XHJcbmE9ZW5kLW9mLWNhbmRpZGF0ZXNc
      }
  
      async fn connect_loopback() -> (WebRTCStream, WebRTCStream) {
@@ -424,7 +436,7 @@ index f33f914..a891cc1 100644
          let answer = answerer.local_endpoint().to_owned();
          offerer.set_remote_endpoint(&answer).await.unwrap();
  
-@@ -2052,6 +2172,34 @@ IHR5cCBzcmZseCByYWRkciAwLjAuMC4wIHJwb3J0IDY0MDA4XHJcbmE9ZW5kLW9mLWNhbmRpZGF0ZXNc
+@@ -2052,6 +2171,34 @@ IHR5cCBzcmZseCByYWRkciAwLjAuMC4wIHJwb3J0IDY0MDA4XHJcbmE9ZW5kLW9mLWNhbmRpZGF0ZXNc
          (offerer, answerer)
      }
  
@@ -459,7 +471,7 @@ index f33f914..a891cc1 100644
      // next()'s teardown must not be cancellable: an awaited close that loses the select! race
      // against a consumer's timer strands the pc (is_closed already latched) and its SESSIONS
      // entry. `close_detached` is non-async, so what needs proving is that the handoff completes.
-@@ -2539,7 +2687,7 @@ IHR5cCBzcmZseCByYWRkciAwLjAuMC4wIHJwb3J0IDY0MDA4XHJcbmE9ZW5kLW9mLWNhbmRpZGF0ZXNc
+@@ -2539,7 +2686,7 @@ IHR5cCBzcmZseCByYWRkciAwLjAuMC4wIHJwb3J0IDY0MDA4XHJcbmE9ZW5kLW9mLWNhbmRpZGF0ZXNc
          let builder = WEBRTC_RT
              .as_ref()
              .expect("WebRTC I/O runtime")
@@ -468,7 +480,7 @@ index f33f914..a891cc1 100644
              .await
              .expect("setup task")
              .expect("offerer builds");
-@@ -2579,7 +2727,7 @@ IHR5cCBzcmZseCByYWRkciAwLjAuMC4wIHJwb3J0IDY0MDA4XHJcbmE9ZW5kLW9mLWNhbmRpZGF0ZXNc
+@@ -2579,7 +2726,7 @@ IHR5cCBzcmZseCByYWRkciAwLjAuMC4wIHJwb3J0IDY0MDA4XHJcbmE9ZW5kLW9mLWNhbmRpZGF0ZXNc
          let builder = WEBRTC_RT
              .as_ref()
              .expect("WebRTC I/O runtime")
@@ -479,6 +491,7 @@ index f33f914..a891cc1 100644
              .expect("offerer builds");
 diff --git a/src/ryadom_dpapi.rs b/src/ryadom_dpapi.rs
 new file mode 100644
+index 0000000..dc8388c
 --- /dev/null
 +++ b/src/ryadom_dpapi.rs
 @@ -0,0 +1,140 @@
@@ -624,6 +637,7 @@ new file mode 100644
 +}
 diff --git a/src/ryadom_network.rs b/src/ryadom_network.rs
 new file mode 100644
+index 0000000..4e3fcbf
 --- /dev/null
 +++ b/src/ryadom_network.rs
 @@ -0,0 +1,185 @@

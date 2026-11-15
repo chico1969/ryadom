@@ -15,7 +15,7 @@ if($BundleTestTurn){
     $buildArgs+='--ryadom-test-turn'
 }
 if(-not(Test-Path (Join-Path $ryadomRoot 'src/bridge_generated.rs'))){
-    throw 'Нужен артефакт bridge-artifact из закреплённого workflow .github/workflows/bridge.yml. Локальный codegen не запускается согласно AGENTS.md.'
+    throw 'Нужен артефакт bridge-artifact из закреплённого workflow .github/workflows/bridge.yml. Используйте закреплённый процесс сборки bridge.'
 }
 Push-Location $ryadomRoot
 try {

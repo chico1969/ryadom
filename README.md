@@ -84,7 +84,7 @@
 
 Независимый форк [RustDesk](https://github.com/rustdesk/rustdesk), базовый коммит
 `95cca3f661f635b3cc85c04935fe8d96d8f432ef`. Благодарим авторов RustDesk и открытых
-зависимостей. Уведомления сохранены; [исходный README](docs/UPSTREAM_README.md).
+зависимостей. Уведомления сохранены; [исходный README](https://github.com/rustdesk/rustdesk/blob/95cca3f661f635b3cc85c04935fe8d96d8f432ef/README.md).
 
 Код «Рядом» распространяется под [GNU AGPL version 3](LICENCE).
 Это независимый проект, не официальный выпуск RustDesk.
