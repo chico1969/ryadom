@@ -45,16 +45,21 @@ of the Flutter build; a complete packaged dependency/license review is still
 required.
 
 License-grant documentation is unresolved for the pinned
-`flutter_gpu_texture_renderer`, `default_net` and `impersonate_system`
-dependencies. These need authoritative clarification; this worksheet does not
+`flutter_gpu_texture_renderer`, `default_net`, `impersonate_system` and
+the separate `hbb_common` submodule. These need authoritative clarification; this worksheet does not
 assign a license to them. A partial `ryadom/THIRD_PARTY_NOTICES.txt` has been
 added to source for AOM, libvpx, libyuv and Opus. Its inclusion in the next
 packaged build and the remaining Rust/native notices still need validation.
 
 Clarification requests: [GPU renderer](https://github.com/rustdesk-org/flutter_gpu_texture_renderer/issues/5)
 and [default_net](https://github.com/rustdesk-org/default_net/issues/6).
-The `impersonate-system` repository has issues disabled; no request has been
-posted there. An unanswered request is not a license grant.
+The `impersonate-system` repository has issues disabled, so its question was
+[posted in RustDesk](https://github.com/rustdesk/rustdesk/issues/17080).
+The `hbb_common` license declaration at `fae47e024dd83cef6aaecde0aa7d11731df11649`
+also needs clarification; the existing
+[upstream discussion](https://github.com/rustdesk/rustdesk/discussions/15801)
+is unanswered. Missing declarations do not prove the absence of rights, and
+unanswered requests are not license grants.
 
 ## Current reputation and testing (honest disclosure)
 

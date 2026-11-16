@@ -78,8 +78,8 @@ The packaged installer and this behavior must be validated and reviewed before
 production signing; their implementation does not imply SignPath approval.
 
 License-grant documentation remains unresolved for the pinned
-`flutter_gpu_texture_renderer`, `default_net` and `impersonate_system`
-dependencies. The new [native notices](ryadom/THIRD_PARTY_NOTICES.txt) cover
+`flutter_gpu_texture_renderer`, `default_net`, `impersonate_system` and
+the separate `hbb_common` submodule. The new [native notices](ryadom/THIRD_PARTY_NOTICES.txt) cover
 AOM, libvpx, libyuv and Opus; they are a partial inventory. Their inclusion in
 the next packaged build and the remaining Rust/native notices still need
 validation. These documents do not assign missing licenses or certify that

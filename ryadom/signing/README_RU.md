@@ -57,7 +57,8 @@
 - сохранить подтверждение подписанной upstream-сборки: Windows x64 1.5.3 уже
   проверена на этом ПК, подпись PURSLANE действительна, timestamp присутствует;
 - получить достоверные сведения о лицензиях закреплённых
-  `flutter_gpu_texture_renderer`, `default_net` и `impersonate_system`:
+  `flutter_gpu_texture_renderer`, `default_net`, `impersonate_system` и
+  отдельного submodule `hbb_common`:
   подтверждение предоставленных прав пока не найдено;
 - проверить поставку нового `ryadom/THIRD_PARTY_NOTICES.txt` с текстами для AOM,
   libvpx, libyuv и Opus. Это частичный перечень; остальные Rust/native notices
