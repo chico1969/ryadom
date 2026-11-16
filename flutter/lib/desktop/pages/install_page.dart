@@ -166,14 +166,27 @@ class _InstallPageBodyState extends State<_InstallPageBody>
   Widget build(BuildContext context) {
     final double em = 13;
     final isDarkTheme = MyTheme.currentThemeMode() == ThemeMode.dark;
+    final ryadomInstaller = const bool.fromEnvironment('RYADOM') && isWindows;
     return Scaffold(
         backgroundColor: null,
+        bottomNavigationBar: ryadomInstaller
+            ? Obx(() => RyadomInstallFooter(
+                onInstall: btnEnabled.value ? install : null,
+                onCancel: cancelEnabled.value ? () => windowManager.close() : null,
+                showProgress: showProgress.value,
+                showRunWithoutInstall: !bind.installShowRunWithoutInstall(),
+                onRunWithoutInstall: btnEnabled.value
+                    ? () => bind.installRunWithoutInstall()
+                    : null))
+            : null,
         body: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(translate('Installation'),
-                  style: Theme.of(context).textTheme.headlineMedium),
+                  style: ryadomInstaller
+                      ? Theme.of(context).textTheme.headlineSmall
+                      : Theme.of(context).textTheme.headlineMedium),
               Table(
                 columnWidths: const {
                   0: IntrinsicColumnWidth(),
@@ -215,11 +228,11 @@ class _InstallPageBodyState extends State<_InstallPageBody>
                     ],
                   ),
                 ],
-              ).marginSymmetric(vertical: 2 * em),
+              ).marginSymmetric(vertical: ryadomInstaller ? 8 : 2 * em),
               Option(startmenu, label: 'Create start menu shortcuts')
-                  .marginOnly(bottom: 7),
+                  .marginOnly(bottom: ryadomInstaller ? 0 : 7),
               Option(desktopicon, label: 'Create desktop icon')
-                  .marginOnly(bottom: 7),
+                  .marginOnly(bottom: ryadomInstaller ? 0 : 7),
               Option(printer, label: 'Install {$appName} Printer'),
               if (const bool.fromEnvironment('RYADOM') && isWindows)
                 Obx(() => RyadomAutostartOption(
@@ -232,7 +245,7 @@ class _InstallPageBodyState extends State<_InstallPageBody>
                     backgroundNetwork: ryadomBackgroundNetwork.value,
                     onChanged: btnEnabled.value
                         ? (value) => ryadomBackgroundNetwork.value = value
-                        : null)).marginSymmetric(vertical: em)
+                        : null)).marginSymmetric(vertical: 8)
               else
                 Container(
                   padding: EdgeInsets.all(12),
@@ -273,7 +286,7 @@ class _InstallPageBodyState extends State<_InstallPageBody>
                       )
                     ],
                   )).marginSymmetric(vertical: 2 * em),
-              Row(
+              if (!ryadomInstaller) Row(
                 children: [
                   Expanded(
                     // NOT use Offstage to wrap LinearProgressIndicator
@@ -315,7 +328,9 @@ class _InstallPageBodyState extends State<_InstallPageBody>
                 ],
               )
             ],
-          ).paddingSymmetric(horizontal: 4 * em, vertical: 3 * em),
+          ).paddingSymmetric(
+              horizontal: ryadomInstaller ? 24 : 4 * em,
+              vertical: ryadomInstaller ? 16 : 3 * em),
         ));
   }
 

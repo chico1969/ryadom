@@ -54,24 +54,58 @@ void main() {
     expect(find.text('Конфиденциальность «Рядом»'), findsNothing);
   });
 
-  testWidgets('privacy controls stay reachable in a compact dark installer',
+  testWidgets('installation actions stay visible without scrolling the form',
       (tester) async {
-    await tester.binding.setSurfaceSize(const Size(600, 560));
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    await tester.pumpWidget(MaterialApp(
-        theme: ThemeData.dark(),
-        home: MediaQuery(
-            data: const MediaQueryData(textScaler: TextScaler.linear(1.25)),
-            child: Scaffold(
-                body: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: const SingleChildScrollView(
-                        child: RyadomInstallPrivacy(
-                            backgroundNetwork: true, onChanged: null)))))));
-    expect(tester.widget<CheckboxListTile>(find.byType(CheckboxListTile)).value,
-        isTrue);
-    await tester.ensureVisible(find.text('Политика на GitHub'));
-    expect(find.text('Политика на GitHub').hitTestable(), findsOneWidget);
-    expect(tester.takeException(), isNull);
+    for (final profile in [
+      (const Size(776, 585), 1.0),
+      (const Size(600, 560), 1.25)
+    ]) {
+      await tester.binding.setSurfaceSize(profile.$1);
+      var installed = 0;
+      await tester.pumpWidget(MaterialApp(
+          theme: ThemeData.dark(),
+          home: MediaQuery(
+              data: MediaQueryData(textScaler: TextScaler.linear(profile.$2)),
+              child: Scaffold(
+                  appBar: const PreferredSize(
+                      preferredSize: Size.fromHeight(30), child: SizedBox()),
+                  body: SingleChildScrollView(
+                      child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 24, vertical: 16),
+                          child: Column(children: [
+                            const SizedBox(height: 160),
+                            RyadomAutostartOption(
+                                value: true, onChanged: (_) {}),
+                            RyadomInstallPrivacy(
+                                backgroundNetwork: true, onChanged: (_) {}),
+                            const SizedBox(height: 600)
+                          ]))),
+                  bottomNavigationBar: RyadomInstallFooter(
+                      onInstall: () => installed++,
+                      onCancel: () {},
+                      showRunWithoutInstall: true,
+                      onRunWithoutInstall: () {})))));
+      final install = find.text('Принять и установить');
+      final initialFooter = tester.getRect(find.byType(RyadomInstallFooter));
+      expect(initialFooter.bottom, lessThanOrEqualTo(profile.$1.height));
+      expect(install.hitTestable(), findsOneWidget);
+      if (profile.$2 == 1.0) {
+        expect(find.text('Запускать вместе с Windows').hitTestable(),
+            findsOneWidget);
+        expect(
+            find
+                .text('Разрешить фоновую связь для входящих подключений')
+                .hitTestable(),
+            findsOneWidget);
+      }
+      await tester.tap(install);
+      expect(installed, 1);
+      await tester.ensureVisible(find.text('Политика на GitHub'));
+      expect(tester.getRect(find.byType(RyadomInstallFooter)), initialFooter);
+      expect(install.hitTestable(), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    }
   });
 }

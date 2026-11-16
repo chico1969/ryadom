@@ -25,6 +25,8 @@ class RyadomInstallPrivacy extends StatelessWidget {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         CheckboxListTile(
             contentPadding: EdgeInsets.zero,
+            dense: true,
+            visualDensity: VisualDensity.compact,
             controlAffinity: ListTileControlAffinity.leading,
             title:
                 const Text('Разрешить фоновую связь для входящих подключений'),
@@ -33,14 +35,11 @@ class RyadomInstallPrivacy extends StatelessWidget {
                 ? null
                 : (value) => onChanged!(value == true)),
         const Text(
-            'Служба поиска alwaysdata получает IP-адреса, ID и сведения для '
-            'соединения. STUN ищет прямой маршрут; настроенный TURN передаёт '
-            'зашифрованный сеанс при необходимости.'),
-        const SizedBox(height: 8),
-        const Text(
-            'Без галочки нет фоновой регистрации для входящих подключений. '
-            'Подключение к другому ПК и «Включить приём» используют сеть. '
-            'Автозапуск задаётся отдельно.'),
+            'Служба поиска alwaysdata получает ID, IP-адреса и сведения для '
+            'соединения. STUN ищет прямой маршрут; настроенный TURN при '
+            'необходимости передаёт зашифрованный сеанс. После установки без '
+            'галочки нет фонового входящего доступа. Подключение к другому ПК '
+            'и «Включить приём» используют сеть.'),
         Wrap(spacing: 8, children: [
           TextButton.icon(
               onPressed: () => showDialog<void>(
@@ -65,6 +64,55 @@ class RyadomInstallPrivacy extends StatelessWidget {
               label: const Text('Политика на GitHub'))
         ])
       ]));
+}
+
+class RyadomInstallFooter extends StatelessWidget {
+  const RyadomInstallFooter(
+      {super.key,
+      required this.onInstall,
+      required this.onCancel,
+      this.showProgress = false,
+      this.showRunWithoutInstall = false,
+      this.onRunWithoutInstall});
+
+  final VoidCallback? onInstall;
+  final VoidCallback? onCancel;
+  final bool showProgress;
+  final bool showRunWithoutInstall;
+  final VoidCallback? onRunWithoutInstall;
+
+  @override
+  Widget build(BuildContext context) => Container(
+      decoration: BoxDecoration(
+          color: Theme.of(context).scaffoldBackgroundColor,
+          border:
+              Border(top: BorderSide(color: Theme.of(context).dividerColor))),
+      child: SafeArea(
+          top: false,
+          minimum: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            if (showProgress)
+              const Padding(
+                  padding: EdgeInsets.only(bottom: 8),
+                  child: LinearProgressIndicator()),
+            Align(
+                alignment: Alignment.centerRight,
+                child: Wrap(spacing: 8, runSpacing: 8, children: [
+                  OutlinedButton.icon(
+                      onPressed: onCancel,
+                      icon: const Icon(Icons.close_rounded, size: 16),
+                      label: const Text('Отмена')),
+                  ElevatedButton.icon(
+                      onPressed: onInstall,
+                      icon: const Icon(Icons.done_rounded, size: 16),
+                      label: const Text('Принять и установить')),
+                  if (showRunWithoutInstall)
+                    OutlinedButton.icon(
+                        onPressed: onRunWithoutInstall,
+                        icon: const Icon(Icons.screen_share_outlined, size: 16),
+                        label: const Text('Запустить без установки'))
+                ]))
+          ])));
 }
 
 const _privacyPolicy =

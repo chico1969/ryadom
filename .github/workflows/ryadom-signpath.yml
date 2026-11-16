@@ -71,6 +71,10 @@ jobs:
       - name: Build from source without private TURN data
         shell: pwsh
         run: ./ryadom/build-windows.ps1
+      - name: Test installer consent and layout
+        shell: pwsh
+        working-directory: flutter
+        run: flutter test --no-pub test/ryadom_install_privacy_test.dart --reporter expanded
       - name: Archive corresponding sources
         shell: pwsh
         run: ./ryadom/package-development.ps1 -SkipWeb
