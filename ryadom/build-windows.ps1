@@ -1,6 +1,7 @@
 param([switch]$BundleTestTurn)
 $ErrorActionPreference='Stop'
 $ryadomRoot=Split-Path -Parent $PSScriptRoot
+$env:RYADOM_BUILD='1'
 & (Join-Path $PSScriptRoot 'prepare-submodule.ps1')
 & (Join-Path $PSScriptRoot 'prepare-network.ps1')
 $features='flutter,ryadom'
@@ -33,5 +34,12 @@ try {
     $dist=Join-Path $ryadomRoot 'dist/development'
     New-Item -ItemType Directory -Force $dist | Out-Null
     Copy-Item -LiteralPath $portable -Destination (Join-Path $dist 'Ryadom.exe') -Force
-    Copy-Item -LiteralPath $portable -Destination (Join-Path $dist 'Ryadom-Setup.exe') -Force
+    Push-Location (Join-Path $ryadomRoot 'libs/portable')
+    try {
+        & cargo test --locked -p rustdesk-portable-packer --features ryadom-setup
+        if($LASTEXITCODE -ne 0){throw 'Тесты запуска Setup не прошли'}
+        & cargo build --locked --release --features ryadom-setup
+        if($LASTEXITCODE -ne 0){throw 'Не собран Setup с закреплённым режимом установки'}
+    } finally {Pop-Location}
+    Copy-Item -LiteralPath (Join-Path $ryadomRoot 'target/release/rustdesk-portable-packer.exe') -Destination (Join-Path $dist 'Ryadom-Setup.exe') -Force
 } finally {Pop-Location}

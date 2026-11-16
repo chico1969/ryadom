@@ -57,6 +57,19 @@ pub fn snapshot() -> Value {
     state["enabled"] = json!(enabled());
     state
 }
+pub fn backend_turn_snapshot() -> Value {
+    let count = hbb_common::ryadom_network::turn_servers().len();
+    let backend = RECEIVING.load(Ordering::SeqCst);
+    json!({
+        "version": 1,
+        "processId": std::process::id(),
+        "acceptingBackend": backend,
+        "accepting": backend && !super::signaling::stopped(),
+        "bundledTurn": hbb_common::ryadom_network::bundled_test_build(),
+        "turnServerCount": count,
+        "configured": count > 0
+    })
+}
 fn report(value: Value) {
     let mut state = STATE.lock().unwrap();
     if value.get("message").is_some() {

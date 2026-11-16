@@ -2,7 +2,7 @@ use super::{
     installer_handoff::{run_cmds, InstallCommands},
     installer_shell::staged_tray_shortcut_commands,
 };
-use hbb_common::{anyhow::anyhow, bail, ResultType};
+use hbb_common::{anyhow::anyhow, bail, config::{self, Config}, ResultType};
 use serde_json::{json, Value};
 use std::path::PathBuf;
 use winreg::{enums::HKEY_LOCAL_MACHINE, RegKey};
@@ -50,23 +50,34 @@ fn commands(enabled: bool, copy_tray: bool) -> String {
     let mode = if enabled { "auto" } else { "demand" };
     let value = if enabled { 1 } else { 0 };
     let tray = if enabled && copy_tray {
-        r#"copy /B /Y "%RUSTDESK_OUTPUT_DIR%\Ryadom Tray.lnk" "%PROGRAMDATA%\Microsoft\Windows\Start Menu\Programs\Startup\Ryadom Tray.lnk" > nul || exit /b 9059"#
+        r#"copy /B /Y "%RUSTDESK_OUTPUT_DIR%\Ryadom Tray.lnk" "%PROGRAMDATA%\Microsoft\Windows\Start Menu\Programs\Startup\Ryadom Tray.lnk" > nul || exit /b 9063"#
     } else if enabled {
-        r#"if not exist "%PROGRAMDATA%\Microsoft\Windows\Start Menu\Programs\Startup\Ryadom Tray.lnk" exit /b 9059"#
+        r#"if not exist "%PROGRAMDATA%\Microsoft\Windows\Start Menu\Programs\Startup\Ryadom Tray.lnk" exit /b 9063"#
     } else {
         r#"if exist "%PROGRAMDATA%\Microsoft\Windows\Start Menu\Programs\Startup\Ryadom Tray.lnk" del /f /q "%PROGRAMDATA%\Microsoft\Windows\Start Menu\Programs\Startup\Ryadom Tray.lnk"
-if exist "%PROGRAMDATA%\Microsoft\Windows\Start Menu\Programs\Startup\Ryadom Tray.lnk" exit /b 9059"#
+if exist "%PROGRAMDATA%\Microsoft\Windows\Start Menu\Programs\Startup\Ryadom Tray.lnk" exit /b 9063"#
     };
     format!(r#"
-sc config Ryadom start= {mode} > nul || exit /b 9059
+sc config Ryadom start= {mode} > nul || exit /b 9062
 {tray}
-reg add HKEY_LOCAL_MACHINE\{KEY} /f /v {VALUE} /t REG_DWORD /d {value} > nul || exit /b 9059
+reg add HKEY_LOCAL_MACHINE\{KEY} /f /v {VALUE} /t REG_DWORD /d {value} > nul || exit /b 9064
 "#)
 }
 
-pub(super) fn install_commands(options: &str) -> String {
+fn setup_commands(options: &str, previous: bool, stopped: bool, outgoing_only: bool) -> String {
+    let enabled = selected(options, previous);
+    if stopped || outgoing_only {
+        let value = if enabled { 1 } else { 0 };
+        return format!(r#"
+reg add HKEY_LOCAL_MACHINE\{KEY} /f /v {VALUE} /t REG_DWORD /d {value} > nul || exit /b 9064
+"#);
+    }
     // Setup already copied this shortcut and cleaned its temporary directory.
-    commands(selected(options, preference()), false)
+    commands(enabled, false)
+}
+
+pub(super) fn install_commands(options: &str) -> String {
+    setup_commands(options, preference(), Config::get_option("stop-service") == "Y", config::is_outgoing_only())
 }
 
 pub(crate) fn set_enabled(enabled: bool) -> ResultType<Value> {
@@ -95,6 +106,22 @@ mod tests {
         assert!(!selected("desktopicon no-autostart",true));
         assert!(selected("autostart",false));
         assert_eq!(silent_options("desktopicon",&["--no-autostart".into()]),"desktopicon no-autostart");
+    }
+
+    #[test]
+    fn ryadom_autostart_setup_preserves_paused_and_outgoing_only_access() {
+        for (options, previous, value) in [
+            ("", true, 1), ("", false, 0),
+            ("autostart", false, 1), ("no-autostart", true, 0),
+        ] {
+            for (stopped, outgoing_only) in [(true, false), (false, true), (true, true)] {
+                assert_eq!(setup_commands(options, previous, stopped, outgoing_only).trim(),
+                    format!(r#"reg add HKEY_LOCAL_MACHINE\SOFTWARE\Ryadom /f /v AutoStart /t REG_DWORD /d {value} > nul || exit /b 9064"#));
+            }
+        }
+        let active = setup_commands("autostart", false, false, false);
+        assert!(active.contains("sc config Ryadom start= auto > nul || exit /b 9062"));
+        assert!(active.contains(r#"if not exist "%PROGRAMDATA%\Microsoft\Windows\Start Menu\Programs\Startup\Ryadom Tray.lnk" exit /b 9063"#));
     }
 
     #[test]

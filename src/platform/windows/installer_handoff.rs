@@ -149,6 +149,16 @@ fn elevated_install_failure_reason(exit_code: u32) -> &'static str {
     match exit_code {
         BATCH_CODE_PAGE_FAILURE_EXIT_CODE => "failed to set the installer code page",
         BATCH_SHORTCUT_COPY_FAILURE_EXIT_CODE => "failed to copy a prepared shortcut",
+        #[cfg(feature = "ryadom")]
+        9060 => "не удалось подготовить файл переноса настроек Рядом",
+        #[cfg(feature = "ryadom")]
+        9061 => "служба не подтвердила перенос ID, пароля и настроек Рядом",
+        #[cfg(feature = "ryadom")]
+        9062 => "не удалось настроить режим запуска службы Рядом",
+        #[cfg(feature = "ryadom")]
+        9063 => "не удалось настроить ярлык автозапуска Рядом",
+        #[cfg(feature = "ryadom")]
+        9064 => "не удалось сохранить настройку автозапуска Рядом",
         _ => "installer command failed",
     }
 }

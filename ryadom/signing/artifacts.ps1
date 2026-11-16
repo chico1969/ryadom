@@ -70,9 +70,14 @@ if($Stage -eq 'repack'){
     Assert-Metadata $outer 'Ryadom.exe'
     $output=Join-Path $work 'unsigned-outer'
     New-Item -ItemType Directory -Force -Path $output | Out-Null
-    foreach($name in @('Ryadom.exe','Ryadom-Setup.exe')){
-        Copy-Item -LiteralPath $outer -Destination (Join-Path $output $name) -Force
-    }
+    Copy-Item -LiteralPath $outer -Destination (Join-Path $output 'Ryadom.exe') -Force
+    Push-Location $packer
+    try{
+        & cargo build --locked --release --features ryadom-setup
+        if($LASTEXITCODE -ne 0){throw 'Packaging installer launch mode failed'}
+    }finally{Pop-Location}
+    Assert-Metadata $outer 'Ryadom.exe'
+    Copy-Item -LiteralPath $outer -Destination (Join-Path $output 'Ryadom-Setup.exe') -Force
     Write-Output 'Verified signed inner files packaged; outer executables await signing.'
     return
 }

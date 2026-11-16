@@ -9,8 +9,10 @@ import 'p2p_panel.dart';
 import 'native_network_stub.dart' if (dart.library.io) 'native_network.dart';
 
 class RyadomHomePage extends StatefulWidget {
-  const RyadomHomePage({super.key, required this.onSetPassword});
+  const RyadomHomePage(
+      {super.key, required this.onSetPassword, this.onSettings});
   final VoidCallback onSetPassword;
+  final VoidCallback? onSettings;
   @override
   State<RyadomHomePage> createState() => _RyadomHomeState();
 }
@@ -102,6 +104,7 @@ class _RyadomHomeState extends State<RyadomHomePage> with WindowListener {
           registrationFailed:
               ['failed', 'stopped'].contains(registration['phase']),
           relayConfigured: relayConfigured,
+          onSettings: widget.onSettings,
           onNetwork: () async {
             await showRyadomP2P(context);
             if (mounted) {
@@ -109,6 +112,16 @@ class _RyadomHomeState extends State<RyadomHomePage> with WindowListener {
             }
           },
           onHelpP2P: () => showRyadomP2P(context, enable: true),
+          onStartReceiving: registration['phase'] == 'stopped' && !bind.isOutgoingOnly()
+              ? () async {
+                  try {
+                    await start_service(true);
+                    await refreshRegistration();
+                  } catch (e) {
+                    if (mounted) setState(() => error = e.toString());
+                  }
+                }
+              : null,
           computers: gFFI.recentPeersModel.peers
               .map((saved) => RyadomComputer(
                   id: saved.id,

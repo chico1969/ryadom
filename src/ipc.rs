@@ -1016,6 +1016,7 @@ async fn handle(data: Data, stream: &mut Connection) {
                             "ryadom-registration-state" => Some(crate::ryadom::registration_state().to_string()),
                             "ryadom-resume-state" => Some(crate::server::ryadom_resume::snapshot().to_string()),
                             "ryadom-network-state" => Some(crate::ryadom::network_helper::snapshot().to_string()),
+                            "ryadom-turn-state" => Some(crate::ryadom::network_helper::backend_turn_snapshot().to_string()),
                             _ => None,
                         };
                     }

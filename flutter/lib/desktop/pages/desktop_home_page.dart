@@ -60,7 +60,12 @@ class _DesktopHomePageState extends State<DesktopHomePage>
   Widget build(BuildContext context) {
     super.build(context);
     if (const bool.fromEnvironment('RYADOM')) {
-      return _buildBlock(child: RyadomHomePage(onSetPassword: () => setPasswordDialog()));
+      return _buildBlock(
+          child: RyadomHomePage(
+              onSetPassword: () => setPasswordDialog(),
+              onSettings: bind.isIncomingOnly() || bind.isDisableSettings()
+                  ? null
+                  : DesktopTabPage.onAddSetting));
     }
     final isIncomingOnly = bind.isIncomingOnly();
     return _buildBlock(

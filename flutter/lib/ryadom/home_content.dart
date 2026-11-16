@@ -4,6 +4,19 @@ const _ink = Color(0xff17233d);
 const _blue = Color(0xff315cdb);
 const _muted = Color(0xff46556b);
 
+class _HomeColors {
+  _HomeColors(BuildContext context)
+      : dark = Theme.of(context).brightness == Brightness.dark;
+  final bool dark;
+  Color get background =>
+      dark ? const Color(0xff171e2b) : const Color(0xfff4f6fb);
+  Color get surface => dark ? const Color(0xff242e40) : Colors.white;
+  Color get ink => dark ? const Color(0xffedf2f8) : _ink;
+  Color get muted => dark ? const Color(0xffbbc7d8) : _muted;
+  Color get accent => dark ? const Color(0xff9ab4ff) : _blue;
+  Color get error => dark ? const Color(0xffffa8a2) : Colors.red.shade700;
+}
+
 class RyadomComputer {
   const RyadomComputer({required this.id, required this.name, this.code = ''});
   final String id, name, code;
@@ -27,8 +40,10 @@ class RyadomHomeContent extends StatelessWidget {
       required this.onOpenComputer,
       required this.onCopy,
       required this.onSetPassword,
+      this.onSettings,
       this.onNetwork,
       this.onHelpP2P,
+      this.onStartReceiving,
       this.relayConfigured = false,
       this.registrationMessage = '',
       this.registrationFailed = false,
@@ -38,8 +53,9 @@ class RyadomHomeContent extends StatelessWidget {
   final TextEditingController target;
   final List<RyadomComputer> computers;
   final VoidCallback onConnect, onCopy, onSetPassword;
-  final VoidCallback? onNetwork;
+  final VoidCallback? onSettings, onNetwork;
   final VoidCallback? onHelpP2P;
+  final VoidCallback? onStartReceiving;
   final bool relayConfigured;
   final ValueChanged<String> onOpenComputer;
   bool get ready =>
@@ -49,23 +65,28 @@ class RyadomHomeContent extends StatelessWidget {
       ? '${localId.substring(0, 3)} ${localId.substring(3, 6)} ${localId.substring(6)}'
       : localId;
 
-  Widget heading(IconData icon, String text) => Row(children: [
-        Icon(icon, color: _blue, size: 22),
+  Widget heading(BuildContext context, IconData icon, String text) =>
+      Row(children: [
+        Icon(icon, color: _HomeColors(context).accent, size: 22),
         const SizedBox(width: 10),
         Expanded(
             child: Text(text,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                    fontSize: 19, fontWeight: FontWeight.w700, color: _ink)))
+                style: TextStyle(
+                    fontSize: 19,
+                    fontWeight: FontWeight.w700,
+                    color: _HomeColors(context).ink)))
       ]);
-  Widget panel(Widget child, bool compact) => DecoratedBox(
+  Widget panel(BuildContext context, Widget child, bool compact) => DecoratedBox(
       decoration: BoxDecoration(
-          color: Colors.white, borderRadius: BorderRadius.circular(16)),
+          color: _HomeColors(context).surface,
+          borderRadius: BorderRadius.circular(16)),
       child: Padding(padding: EdgeInsets.all(compact ? 10 : 16), child: child));
-  Widget share(bool compact) => panel(
+  Widget share(BuildContext context, bool compact) => panel(
+      context,
       Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        heading(Icons.screen_share_outlined, 'Дать доступ'),
+        heading(context, Icons.screen_share_outlined, 'Дать доступ'),
         SizedBox(height: compact ? 8 : 12),
         Tooltip(
             message: registrationMessage,
@@ -77,7 +98,9 @@ class RyadomHomeContent extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                     fontSize: 14,
-                    color: registrationFailed ? Colors.red.shade700 : _muted))),
+                    color: registrationFailed
+                        ? _HomeColors(context).error
+                        : _HomeColors(context).muted))),
         const SizedBox(height: 6),
         SizedBox(
             height: shortId ? 30 : 24,
@@ -95,13 +118,19 @@ class RyadomHomeContent extends StatelessWidget {
                         fontFamily: 'Segoe UI',
                         fontSize: shortId ? 22 : 15,
                         fontWeight: FontWeight.w700,
-                        color: _ink)))),
+                        color: _HomeColors(context).ink)))),
         const SizedBox(height: 10),
         Wrap(spacing: 8, runSpacing: 4, children: [
-          OutlinedButton.icon(
-              onPressed: ready ? onCopy : null,
-              icon: const Icon(Icons.copy, size: 15),
-              label: const Text('Скопировать ID')),
+          if (onStartReceiving != null)
+            OutlinedButton.icon(
+                onPressed: onStartReceiving,
+                icon: const Icon(Icons.play_arrow, size: 15),
+                label: const Text('Включить приём'))
+          else
+            OutlinedButton.icon(
+                onPressed: ready ? onCopy : null,
+                icon: const Icon(Icons.copy, size: 15),
+                label: const Text('Скопировать ID')),
           Tooltip(
               message: 'Постоянный пароль',
               child: TextButton(
@@ -110,19 +139,23 @@ class RyadomHomeContent extends StatelessWidget {
         ]),
         if (!compact) ...[
           const SizedBox(height: 10),
-          const Text(
+          Text(
               'Для разовой помощи нажмите «Разрешить», когда поступит запрос.',
-              style: TextStyle(fontSize: 14, color: _muted))
+              style: TextStyle(fontSize: 14, color: _HomeColors(context).muted))
         ]
       ]),
       compact);
-  Widget join(bool compact) => panel(
+  Widget join(BuildContext context, bool compact) => panel(
+      context,
       Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        heading(Icons.near_me_outlined, 'Подключиться'),
+        heading(context, Icons.near_me_outlined, 'Подключиться'),
         SizedBox(height: compact ? 8 : 12),
         TextField(
             controller: target,
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+            style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+                color: _HomeColors(context).ink),
             decoration: const InputDecoration(
                 hintText: 'ID удалённого компьютера',
                 isDense: true,
@@ -137,17 +170,18 @@ class RyadomHomeContent extends StatelessWidget {
             label: const Text('Подключиться')),
         if (!compact) ...[
           const SizedBox(height: 10),
-          const Text(
+          Text(
               'Введите пароль при подключении или дождитесь разрешения владельца.',
-              style: TextStyle(fontSize: 14, color: _muted))
+              style: TextStyle(fontSize: 14, color: _HomeColors(context).muted))
         ]
       ]),
       compact);
-  Widget computerList() => computers.isEmpty
-      ? const Align(
+  Widget computerList(BuildContext context) => computers.isEmpty
+      ? Align(
           alignment: Alignment.topLeft,
           child: Text('Компьютеры появятся здесь после первого подключения.',
-              style: TextStyle(fontSize: 13, color: _muted)))
+              style:
+                  TextStyle(fontSize: 13, color: _HomeColors(context).muted)))
       : LayoutBuilder(builder: (context, box) {
           final scale = MediaQuery.textScalerOf(context).scale(1);
           final columns =
@@ -167,7 +201,7 @@ class RyadomHomeContent extends StatelessWidget {
                         ? 'Подключитесь к сохранённому устройству: его числовой ID появится в истории после ответа новой версии Рядом.'
                         : 'Последний известный ID. Подключение проверяет сохранённую личность устройства, даже если номер изменился.',
                     child: Material(
-                        color: Colors.white,
+                        color: _HomeColors(context).surface,
                         borderRadius: BorderRadius.circular(10),
                         child: InkWell(
                             borderRadius: BorderRadius.circular(10),
@@ -176,8 +210,9 @@ class RyadomHomeContent extends StatelessWidget {
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 10, vertical: 7),
                                 child: Row(children: [
-                                  const Icon(Icons.computer_outlined,
-                                      color: _blue, size: 19),
+                                  Icon(Icons.computer_outlined,
+                                      color: _HomeColors(context).accent,
+                                      size: 19),
                                   const SizedBox(width: 9),
                                   Expanded(
                                       child: Column(
@@ -199,18 +234,22 @@ class RyadomHomeContent extends StatelessWidget {
                                                         ? 13
                                                         : 17,
                                                 fontWeight: FontWeight.w700,
-                                                color: _ink)),
+                                                color:
+                                                    _HomeColors(context).ink)),
                                         Text(
                                             computer.name.isEmpty
                                                 ? 'Сохранённый компьютер'
                                                 : computer.name,
                                             maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(
-                                                fontSize: 13, color: _muted)),
+                                            style: TextStyle(
+                                                fontSize: 13,
+                                                color: _HomeColors(context)
+                                                    .muted)),
                                       ])),
-                                  const Icon(Icons.chevron_right,
-                                      size: 16, color: _muted),
+                                  Icon(Icons.chevron_right,
+                                      size: 16,
+                                      color: _HomeColors(context).muted),
                                 ])))));
               });
         });
@@ -218,7 +257,8 @@ class RyadomHomeContent extends StatelessWidget {
       context: context,
       builder: (context) => AlertDialog(
               title: const Text('История подключений'),
-              content: SizedBox(width: 900, height: 420, child: computerList()),
+              content: SizedBox(
+                  width: 900, height: 420, child: computerList(context)),
               actions: [
                 TextButton(
                     onPressed: () => Navigator.pop(context),
@@ -230,14 +270,48 @@ class RyadomHomeContent extends StatelessWidget {
         final scale = MediaQuery.textScalerOf(context).scale(1);
         final compact = constraints.maxHeight < 680 * scale;
         final short = constraints.maxHeight < 440 * scale;
+        final colors = _HomeColors(context);
+        final base = Theme.of(context);
         return ColoredBox(
-            color: const Color(0xfff4f6fb),
+            color: colors.background,
             child: Padding(
                 padding: EdgeInsets.symmetric(
                     horizontal: short ? 12 : 18, vertical: short ? 8 : 18),
                 child: Theme(
-                    data: Theme.of(context)
-                        .copyWith(visualDensity: VisualDensity.compact),
+                    data: base.copyWith(
+                        visualDensity: VisualDensity.compact,
+                        iconTheme: base.iconTheme.copyWith(color: colors.ink),
+                        textButtonTheme: colors.dark
+                            ? TextButtonThemeData(
+                                style: TextButton.styleFrom(
+                                    foregroundColor: colors.accent))
+                            : base.textButtonTheme,
+                        outlinedButtonTheme: colors.dark
+                            ? OutlinedButtonThemeData(
+                                style: OutlinedButton.styleFrom(
+                                    foregroundColor: colors.accent,
+                                    side: const BorderSide(
+                                        color: Color(0xff63738c))))
+                            : base.outlinedButtonTheme,
+                        filledButtonTheme: colors.dark
+                            ? FilledButtonThemeData(
+                                style: FilledButton.styleFrom(
+                                    backgroundColor: _blue,
+                                    foregroundColor: Colors.white))
+                            : base.filledButtonTheme,
+                        inputDecorationTheme: colors.dark
+                            ? base.inputDecorationTheme.copyWith(
+                                filled: true,
+                                fillColor: const Color(0xff171e2b),
+                                hintStyle: base.inputDecorationTheme.hintStyle
+                                        ?.copyWith(color: colors.muted) ??
+                                    TextStyle(color: colors.muted),
+                                enabledBorder: const OutlineInputBorder(
+                                    borderSide:
+                                        BorderSide(color: Color(0xff63738c))),
+                                focusedBorder:
+                                    OutlineInputBorder(borderSide: BorderSide(color: colors.accent, width: 2)))
+                            : base.inputDecorationTheme),
                     child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -255,34 +329,48 @@ class RyadomHomeContent extends StatelessWidget {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                  const Text('Рядом',
+                                  Text('Рядом',
                                       style: TextStyle(
                                           fontSize: 25,
                                           fontWeight: FontWeight.w800,
-                                          color: _ink)),
+                                          color: colors.ink)),
                                   if (error.isNotEmpty)
                                     Tooltip(
                                         message: error,
                                         child: Text(error,
                                             maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(
+                                            style: TextStyle(
                                                 fontSize: 14,
-                                                color: Colors.red)))
+                                                color: colors.dark
+                                                    ? colors.error
+                                                    : Colors.red)))
                                   else if (!short)
-                                    const Text(
+                                    Text(
                                         'Помощь близким. Где бы вы ни были.',
                                         style: TextStyle(
-                                            fontSize: 14, color: _muted))
+                                            fontSize: 14, color: colors.muted))
                                 ])),
-                            const Text('Тестовая сборка',
-                                style: TextStyle(fontSize: 13, color: _muted)),
+                            if (onSettings != null)
+                              Tooltip(
+                                  message: 'Настройки',
+                                  child: TextButton.icon(
+                                      onPressed: onSettings,
+                                      style: TextButton.styleFrom(
+                                          foregroundColor: colors.accent),
+                                      icon: const Icon(Icons.settings_outlined,
+                                          size: 20),
+                                      label: const Text('Настройки'))),
                             if (onNetwork != null)
-                              IconButton(
-                                  onPressed: onNetwork,
-                                  tooltip: 'P2P и сеть',
-                                  icon: const Icon(Icons.settings_ethernet,
-                                      size: 20))
+                              Tooltip(
+                                  message: 'Настройки подключения',
+                                  child: TextButton.icon(
+                                      onPressed: onNetwork,
+                                      style: TextButton.styleFrom(
+                                          foregroundColor: colors.accent),
+                                      icon: const Icon(Icons.settings_ethernet,
+                                          size: 20),
+                                      label: const Text('P2P / TURN')))
                           ]),
                           SizedBox(height: short ? 10 : 14),
                           IntrinsicHeight(
@@ -290,9 +378,9 @@ class RyadomHomeContent extends StatelessWidget {
                                   crossAxisAlignment:
                                       CrossAxisAlignment.stretch,
                                   children: [
-                                Expanded(child: share(compact)),
+                                Expanded(child: share(context, compact)),
                                 const SizedBox(width: 12),
-                                Expanded(child: join(compact))
+                                Expanded(child: join(context, compact))
                               ])),
                           SizedBox(height: short ? 10 : 16),
                           Row(children: [
@@ -300,10 +388,10 @@ class RyadomHomeContent extends StatelessWidget {
                                 child: Text('История · ${computers.length}',
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.w700,
-                                        color: _ink))),
+                                        color: colors.ink))),
                             IconButton(
                                 tooltip: 'Открыть всю историю',
                                 onPressed: () => showComputers(context),
@@ -325,7 +413,7 @@ class RyadomHomeContent extends StatelessWidget {
                                                   TextOverflow.ellipsis))))
                           ]),
                           const SizedBox(height: 8),
-                          Expanded(child: computerList()),
+                          Expanded(child: computerList(context)),
                           if (!short) ...[
                             const SizedBox(height: 8),
                             Text(
@@ -334,8 +422,8 @@ class RyadomHomeContent extends StatelessWidget {
                                     : 'Прямое соединение. Личный TURN не настроен; возможен резерв другого участника.',
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                    fontSize: 13, color: _muted))
+                                style: TextStyle(
+                                    fontSize: 13, color: colors.muted))
                           ]
                         ]))));
       });

@@ -55,6 +55,7 @@ fn snapshot(source: &Path) -> ResultType<Snapshot> {
     let raw = read_config(source)?;
     let mut main = identity(&raw)?;
     let mut pair: (Vec<u8>, Vec<u8>) = main["key_pair"].clone().try_into()?;
+    ryadom_dpapi::open_identity(&mut pair)?;
     pair.0 = ryadom_dpapi::seal_machine(&pair.0, "Ryadom.device-key.v1")?;
     main["key_pair"] = toml::Value::try_from(pair)?;
     let options_path = source.with_file_name("Ryadom2.toml");
@@ -87,14 +88,14 @@ pub(super) fn prepare(exe: &str) -> ResultType<(String, Option<ProtectedInstallF
     let source = path_for_cmd_environment(file.path())?;
     let exe = escape_nested_cmd_ampersands(exe);
     let commands = format!(r#"
-copy /B /Y "{source}" "%RUSTDESK_OUTPUT_DIR%\ryadom-config.json" > nul || exit /b 9059
+copy /B /Y "{source}" "%RUSTDESK_OUTPUT_DIR%\ryadom-config.json" > nul || exit /b 9060
 sc stop Ryadom > nul 2>&1
 sc delete Ryadom > nul 2>&1
 sc create Ryadom binpath= "\"{exe}\" --ryadom-import-config \"%RUSTDESK_OUTPUT_DIR%\ryadom-config.json\" \"%RUSTDESK_OUTPUT_DIR%\ryadom-import.ok\"" start= demand DisplayName= "Ryadom configuration import"
 sc start Ryadom > nul 2>&1
 sc stop Ryadom > nul 2>&1
 sc delete Ryadom > nul 2>&1
-if not exist "%RUSTDESK_OUTPUT_DIR%\ryadom-import.ok" exit /b 9059
+if not exist "%RUSTDESK_OUTPUT_DIR%\ryadom-import.ok" exit /b 9061
 "#);
     Ok((commands, Some(file)))
 }
@@ -164,19 +165,23 @@ mod tests {
         let target = root.join("service/Ryadom.toml");
         fs::create_dir_all(source.parent().unwrap()).unwrap();
         let (pk, sk) = sign::gen_keypair();
+        let protected_sk = ryadom_dpapi::seal(sk.as_ref(), "Ryadom.device-key.v1").unwrap();
         let password=uuid::Uuid::new_v4().to_string();
         let salt=uuid::Uuid::new_v4().to_string();
         let h1=hbb_common::config::compute_permanent_password_h1(&password,&salt);
         let stored=format!("01{}",STANDARD.encode(hbb_common::password_security::symmetric_crypt(format!("00{}",STANDARD.encode(h1)).as_bytes(),true).unwrap()));
         let device=crate::ryadom::device_id(pk.as_ref());
         let enc_id=hbb_common::password_security::encrypt_str_or_original(&device,"00",128);
-        let raw = toml::to_string(&serde_json::json!({"enc_id":enc_id, "password":stored, "salt":salt, "key_pair":[sk.as_ref(),pk.as_ref()]})).unwrap();
+        let raw = toml::to_string(&serde_json::json!({"enc_id":enc_id, "password":stored, "salt":salt, "key_pair":[protected_sk.as_slice(),pk.as_ref()]})).unwrap();
         fs::write(&source, raw).unwrap();
         let owner = hbb_common::ryadom_network::protect_owner_config(r#"[{"urls":["turn:relay.example.com:3478"],"username":"test-user","credential":"test-only"}]"#).unwrap();
         let code=format!("{}",hbb_common::rand::random::<u32>()%900_000_000+100_000_000);
         let options = serde_json::json!({"options":{"ryadom-short-code":code,"ryadom-p2p-helper":"","approve-mode":"password","verification-method":"use-permanent-password","enable-clipboard":"N",hbb_common::ryadom_network::OWNER_TURN_OPTION:owner}});
         fs::write(source.with_file_name("Ryadom2.toml"), toml::to_string(&options).unwrap()).unwrap();
         let value = snapshot(&source).unwrap();
+        let exported: toml::Value = toml::from_str(&value.identity).unwrap();
+        let exported_pair: (Vec<u8>, Vec<u8>) = exported["key_pair"].clone().try_into().unwrap();
+        assert_ne!(exported_pair.0, protected_sk);
         install(value, &target).unwrap();
         let copied: toml::Value = toml::from_str(&fs::read_to_string(&target).unwrap()).unwrap();
         assert_eq!(copied["password"].as_str(),Some(stored.as_str()));

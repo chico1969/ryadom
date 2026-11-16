@@ -273,6 +273,23 @@ fn execute(path: PathBuf, args: Vec<String>, _ui: bool) {
     }
 }
 
+#[cfg(any(ryadom_build, test))]
+fn is_ryadom_setup_launch(args: &[String]) -> bool {
+    cfg!(ryadom_build) && cfg!(feature = "ryadom-setup") && args.is_empty()
+}
+
+#[cfg(ryadom_build)]
+fn ryadom_install_dir(click_setup: bool, args: &[String]) -> Option<PathBuf> {
+    if !click_setup && !args.iter().any(|arg| arg == "--install" || arg == "--silent-install") {
+        return None;
+    }
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos();
+    Some(std::env::temp_dir().join(format!("ryadom-install-{}-{timestamp}", std::process::id())))
+}
+
 fn main() -> Result<(), String> {
     let mut args = Vec::new();
     let mut arg_exe = Default::default();
@@ -285,10 +302,12 @@ fn main() -> Result<(), String> {
         }
         i += 1;
     }
-    let click_setup = args.is_empty() && (arg_exe.to_lowercase().ends_with("install.exe")
-        || (option_env!("RYADOM_BUILD").is_some() && arg_exe.to_lowercase().ends_with("ryadom-setup.exe")));
+    #[cfg(ryadom_build)]
+    let click_setup = is_ryadom_setup_launch(&args);
+    #[cfg(not(ryadom_build))]
+    let click_setup = args.is_empty() && arg_exe.to_lowercase().ends_with("install.exe");
     #[cfg(windows)]
-    let quick_support = args.is_empty() && win::is_quick_support_exe(&arg_exe);
+    let quick_support = !cfg!(ryadom_build) && args.is_empty() && win::is_quick_support_exe(&arg_exe);
     #[cfg(not(windows))]
     let quick_support = false;
 
@@ -301,9 +320,13 @@ fn main() -> Result<(), String> {
 
     let mut ui = false;
     let reader = BinaryReader::new()?;
+    #[cfg(ryadom_build)]
+    let install_dir = ryadom_install_dir(click_setup, &args);
+    #[cfg(not(ryadom_build))]
+    let install_dir = None;
     if let Some(exe) = setup(
         reader,
-        None,
+        install_dir,
         click_setup || args.contains(&"--silent-install".to_owned()),
         &args,
         &mut ui,
@@ -366,10 +389,12 @@ mod win {
                 }
             }
         }
-        let _allow_err = Command::new("taskkill")
-            .args(&["/F", "/IM", "RuntimeBroker_rustdesk.exe"])
-            .creation_flags(winapi::um::winbase::CREATE_NO_WINDOW)
-            .output();
+        if !cfg!(ryadom_build) || target_file.exists() {
+            let _allow_err = Command::new("taskkill")
+                .args(&["/F", "/IM", "RuntimeBroker_rustdesk.exe"])
+                .creation_flags(winapi::um::winbase::CREATE_NO_WINDOW)
+                .output();
+        }
         let _allow_err = std::fs::copy(src, &format!("{}\\{}", dir.to_string_lossy(), tgt));
     }
 
@@ -385,6 +410,29 @@ mod win {
 #[cfg(test)]
 mod meta_tests {
     use super::*;
+
+    #[cfg(ryadom_build)]
+    #[test]
+    fn ryadom_variant_uses_its_built_in_start_mode() {
+        assert_eq!(is_ryadom_setup_launch(&[]), cfg!(feature = "ryadom-setup"));
+    }
+
+    #[test]
+    fn ryadom_setup_variant_preserves_explicit_arguments() {
+        assert!(!is_ryadom_setup_launch(&["--ryadom-network-status".to_owned()]));
+        assert!(!is_ryadom_setup_launch(&["--install".to_owned()]));
+    }
+
+    #[cfg(ryadom_build)]
+    #[test]
+    fn ryadom_installer_uses_a_separate_temporary_directory() {
+        let dir = ryadom_install_dir(true, &[]).unwrap();
+        assert!(dir.starts_with(std::env::temp_dir()));
+        assert!(dir.file_name().unwrap().to_string_lossy().starts_with("ryadom-install-"));
+        assert!(ryadom_install_dir(false, &["--install".to_owned()]).is_some());
+        assert!(ryadom_install_dir(false, &["--silent-install".to_owned()]).is_some());
+        assert_eq!(ryadom_install_dir(false, &[]), None);
+    }
 
     #[test]
     fn resolve_within_rejects_paths_that_escape() {

@@ -30,6 +30,44 @@ pub fn cli(args: &[String]) -> ResultType<bool> {
             println!("{}", display_code());
             Ok(true)
         }
+        Some("--ryadom-network-status") => {
+            let status = (|| -> ResultType<()> {
+                if args.len() != 1 {
+                    bail!("Команда проверки сети не принимает дополнительные параметры");
+                }
+                let raw = crate::ipc::get_config("ryadom-turn-state")
+                    .map_err(|_| anyhow!("Не удалось связаться с принимающим ядром Рядом. Его настройки TURN не проверены."))?
+                    .filter(|value| !value.trim().is_empty())
+                    .ok_or_else(|| anyhow!("Принимающее ядро не поддерживает проверку TURN. Обновите запущенную службу или принимающий Portable."))?;
+                let state: serde_json::Value = serde_json::from_str(&raw)
+                    .map_err(|_| anyhow!("Принимающее ядро вернуло некорректное состояние TURN"))?;
+                if state["version"] != 1
+                    || state["acceptingBackend"] != true
+                    || state["processId"].as_u64().filter(|pid| *pid > 0).is_none()
+                    || !state["accepting"].is_boolean()
+                    || !state["bundledTurn"].is_boolean()
+                    || !state["turnServerCount"].is_u64()
+                    || !state["configured"].is_boolean()
+                {
+                    bail!("Не подтверждено состояние принимающего ядра Рядом. Обновите и запустите принимающую службу или Portable.");
+                }
+                println!("{}", serde_json::json!({
+                    "version": state["version"],
+                    "processId": state["processId"],
+                    "acceptingBackend": state["acceptingBackend"],
+                    "accepting": state["accepting"],
+                    "bundledTurn": state["bundledTurn"],
+                    "turnServerCount": state["turnServerCount"],
+                    "configured": state["configured"]
+                }));
+                Ok(())
+            })();
+            if let Err(error) = status {
+                eprintln!("{error}");
+                std::process::exit(1);
+            }
+            Ok(true)
+        }
         Some("--ryadom-owner-network") => {
             if args.len() != 2 {
                 bail!("Нужен путь к локальному файлу TURN");
