@@ -2,8 +2,9 @@
 
 ## Current status
 
-Ryadom (Рядом) is preparing an application to the SignPath Foundation Open Source
-program. The application has not been approved. Current development downloads
+The owner submitted Ryadom (Рядом) to the SignPath Foundation Open Source
+program on 16 November 2026; the web form confirmed receipt. The application
+has not been approved. Current development downloads
 are unsigned. No SignPath sponsorship or trusted publisher status is claimed.
 
 Project license: [GNU AGPL version 3](LICENCE).

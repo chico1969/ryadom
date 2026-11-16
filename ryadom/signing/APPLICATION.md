@@ -1,8 +1,10 @@
 # SignPath Foundation application worksheet
 
-Draft only. Before submission, complete the contact fields in the official
-form and resolve the pre-submission prerequisites. Keep the owner's personal
-contact details out of this public worksheet. Configure the SignPath account,
+The owner submitted the official form on 16 November 2026, and the website
+confirmed receipt. Approval is pending. The license and packaged-validation
+questions below remain open; submission is not a claim that they are resolved.
+Keep the owner's personal contact details out of this public worksheet.
+Configure the SignPath account,
 MFA and signing permissions once that account is available, before production
 signing. Do not invent users, contributors, reviews or public reputation.
 
@@ -105,6 +107,7 @@ maintainer review are still required before a public signed release.
 Official form: https://signpath.org/apply
 Requirements: https://signpath.org/terms
 
-The owner supplies personal/contact data and accepts program terms. No
-application has been sent by preparing this file. Do not add the sponsorship
-acknowledgement as an active claim until accepted and production signing works.
+The owner entered personal/contact data and submitted the official web form.
+This worksheet records preparation and remaining questions; it is not an
+approval from SignPath. Do not add the sponsorship acknowledgement as an
+active claim until accepted and production signing works.
