@@ -1,12 +1,12 @@
 # SignPath Foundation application worksheet
 
 The owner submitted the official form on 16 November 2026, and the website
-confirmed receipt. Approval is pending. The license and packaged-validation
+confirmed receipt. Approval is pending. The license and fresh-candidate validation
 questions below remain open; submission is not a claim that they are resolved.
 Keep the owner's personal contact details out of this public worksheet.
-Configure the SignPath account,
-MFA and signing permissions once that account is available, before production
-signing. Do not invent users, contributors, reviews or public reputation.
+GitHub MFA has been confirmed. SignPath identity, MFA and signing permissions
+remain to be configured once the SignPath account is provided, before
+production signing. Do not invent users, contributors, reviews or public reputation.
 
 | Field | Proposed answer |
 | --- | --- |
@@ -19,7 +19,7 @@ signing. Do not invent users, contributors, reviews or public reputation.
 | Code signing policy | https://github.com/chico1969/ryadom/blob/ryadom/CODE_SIGNING.md |
 | Maintainer / contact | chico1969; owner supplies the required name and application email directly in the official form |
 | Committers and reviewers | https://github.com/chico1969 ; initially one maintainer |
-| Release approver | chico1969; SignPath identity/MFA and manual approval role to be configured before production signing |
+| Release approver | chico1969; GitHub MFA confirmed, SignPath identity/MFA and approval role pending account provision |
 | Proposed signing build system | GitHub Actions, exclusively GitHub-hosted Windows/Linux runners |
 | Target | Windows 10/11 x64; portable executable and service installer |
 
@@ -53,13 +53,15 @@ License-grant documentation is unresolved for the pinned
 `flutter_gpu_texture_renderer`, `default_net`, `impersonate_system` and
 the separate `hbb_common` submodule. These need authoritative clarification; this worksheet does not
 assign a license to them. A partial `ryadom/THIRD_PARTY_NOTICES.txt` has been
-added to source for AOM, libvpx, libyuv and Opus. Its inclusion in the next
-packaged build and the remaining Rust/native notices still need validation.
+added for AOM, libvpx, libyuv and Opus and was present in the inspected 0.1.0.2
+packages. The remaining Rust/native notices still need review.
 
 Clarification requests: [GPU renderer](https://github.com/rustdesk-org/flutter_gpu_texture_renderer/issues/5)
 and [default_net](https://github.com/rustdesk-org/default_net/issues/6).
 The `impersonate-system` repository has issues disabled, so its question was
-[posted in RustDesk](https://github.com/rustdesk/rustdesk/issues/17080).
+[posted in RustDesk](https://github.com/rustdesk/rustdesk/issues/17080). That
+endpoint later returned HTTP 410 with the message "This issue was deleted";
+the question is no longer available there.
 The `hbb_common` license declaration at `fae47e024dd83cef6aaecde0aa7d11731df11649`
 also needs clarification; the existing
 [upstream discussion](https://github.com/rustdesk/rustdesk/discussions/15801)
@@ -77,11 +79,20 @@ that the Foundation may decline a new project without verifiable public
 reputation and that a signature is not a security endorsement.
 
 An unsigned public test release is available at the download URL above.
-GitHub-hosted [run 43757455942](https://github.com/chico1969/ryadom/actions/runs/43757455942)
-succeeded without signing at revision `512671e`. That earlier run is not
-evidence that the current installer privacy changes or native notices have
-built and passed packaged validation. A fresh hosted build is required for the
-candidate submitted for signing.
+Official GitHub-hosted [run 43876303443](https://github.com/chico1969/ryadom/actions/runs/43876303443)
+succeeded without signing for version 0.1.0.2 at revision
+`e7cdddea1e95d294fcc82c71498e83fd4545bd9c`. Four installation policy/autostart
+scenarios and a separate service restart passed their checks. The harness later
+failed during restoration; a separate recovery restored the original profiles
+and service. This is not reported as an entirely successful harness run.
+
+A local footer layout fix using the same hosted native core was then installed
+once; all 93 installed runtime files matched that candidate, including the
+native notices. The four scenarios were not repeated with the new UI.
+The fresh [unsigned 0.1.0.3 run 43913604981](https://github.com/chico1969/ryadom/actions/runs/43913604981)
+at revision `51321dd01e466054af24a994b2f81fb440c01134` was started.
+Its completed artifacts and installation are not yet verified, and none of
+these checks is a signing approval.
 
 ## Signing design / questions for reviewer
 
@@ -99,8 +110,9 @@ source now displays its own local Russian privacy disclosure and a separate
 background-network choice, preserving the host's current choice on updates.
 Disabling it stops incoming background registration after installation;
 explicit outgoing connections and re-enabling incoming access may use the
-network again. Autostart remains independent. Packaged Windows validation and
-maintainer review are still required before a public signed release.
+network again. Autostart remains independent. The completed packaged checks
+above concern 0.1.0.2 and one local UI-fix installation; the fresh 0.1.0.3
+package and maintainer review are still required before a public signed release.
 
 ## Submission
 

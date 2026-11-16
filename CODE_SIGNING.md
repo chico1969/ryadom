@@ -17,16 +17,19 @@ This is an independent fork, not an official RustDesk release.
 The public repository is <https://github.com/chico1969/ryadom>, created as a
 visible fork. Ryadom development sources are published on its `ryadom` branch.
 The [public test release](https://github.com/chico1969/ryadom/releases/tag/ryadom-test-2026-11-16)
-is unsigned. An earlier [unsigned hosted build](https://github.com/chico1969/ryadom/actions/runs/43757455942)
-succeeded at revision `512671e`; it does not validate the current candidate's
-installer privacy changes or added native notices. A fresh hosted build and
-packaged validation are still required.
+is unsigned. The official [unsigned hosted 0.1.0.2 build](https://github.com/chico1969/ryadom/actions/runs/43876303443)
+succeeded at revision `e7cdddea1e95d294fcc82c71498e83fd4545bd9c`.
+The fresh [unsigned 0.1.0.3 build](https://github.com/chico1969/ryadom/actions/runs/43913604981)
+at `51321dd01e466054af24a994b2f81fb440c01134` was started;
+its completed artifacts and installation have not yet been verified.
 See [the application worksheet](ryadom/signing/APPLICATION.md).
 The upstream Git remote is not the destination for Ryadom releases.
 
 Project owner [chico1969](https://github.com/chico1969) will be the committer,
 reviewer and release approver for the initial single-maintainer project.
-The owner must separately confirm the SignPath identity and enable MFA.
+GitHub MFA has been confirmed. SignPath identity, MFA and production signing
+roles remain to be configured once the SignPath account is provided, before
+production signing.
 Contributors and automated tools cannot
 approve production signing requests. All users with repository write access or
 SignPath access must enable multi-factor authentication. Application changes,
@@ -75,15 +78,20 @@ See [Privacy policy](PRIVACY.md) for network services and local data.
 The Windows installer source includes its own local privacy disclosure and an
 independent choice to disable background registration for incoming access.
 Windows autostart and explicitly started outgoing connections are separate.
-The packaged installer and this behavior must be validated and reviewed before
-production signing; their implementation does not imply SignPath approval.
+Four installation policy/autostart scenarios and a separate service restart
+passed their checks using the hosted 0.1.0.2 core. A local footer layout fix
+was subsequently installed once, with all 93 runtime files verified; the four
+scenarios were not repeated with that new UI. Native notices were present.
+See the application worksheet for the restoration failure and recovery scope.
+The fresh 0.1.0.3 package still needs validation; these checks do not imply
+SignPath approval.
 
 License-grant documentation remains unresolved for the pinned
 `flutter_gpu_texture_renderer`, `default_net`, `impersonate_system` and
 the separate `hbb_common` submodule. The new [native notices](ryadom/THIRD_PARTY_NOTICES.txt) cover
-AOM, libvpx, libyuv and Opus; they are a partial inventory. Their inclusion in
-the next packaged build and the remaining Rust/native notices still need
-validation. These documents do not assign missing licenses or certify that
+AOM, libvpx, libyuv and Opus and were present in the inspected 0.1.0.2 packages.
+The inventory remains partial; the remaining Rust/native notices still need
+review. These documents do not assign missing licenses or certify that
 the dependency review is complete.
 
 ## Attribution after approval
