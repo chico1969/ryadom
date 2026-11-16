@@ -161,7 +161,7 @@ TURN одного или обоих участников. Проверка ли�
 Для установленной версии read-only проверка в PowerShell:
 
 ```powershell
-& "$env:ProgramFiles\Ryadom\Ryadom.exe" --ryadom-network-status
+& "$env:ProgramFiles\Ryadom\Ryadom.exe" --ryadom-network-status | Out-String
 ```
 
 На принимающем ноутбуке ожидаются `acceptingBackend: true`, `accepting: true`,
