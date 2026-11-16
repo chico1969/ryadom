@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_hbb/common.dart';
 import 'package:flutter_hbb/ryadom/autostart.dart';
+import 'package:flutter_hbb/ryadom/install_privacy.dart';
 import 'package:flutter_hbb/desktop/widgets/install_directory_confirmation.dart';
 import 'package:flutter_hbb/desktop/widgets/tabbar_widget.dart';
 import 'package:flutter_hbb/models/platform_model.dart';
@@ -70,6 +71,7 @@ class _InstallPageBodyState extends State<_InstallPageBody>
   final RxBool startmenu = true.obs;
   final RxBool desktopicon = true.obs;
   final RxBool ryadomAutostart = true.obs;
+  final RxBool ryadomBackgroundNetwork = true.obs;
   final RxBool printer = false.obs;
   final RxBool showProgress = false.obs;
   final RxBool btnEnabled = true.obs;
@@ -89,6 +91,8 @@ class _InstallPageBodyState extends State<_InstallPageBody>
     printer.value = installOptions['PRINTER'] == '1';
     if (const bool.fromEnvironment('RYADOM') && isWindows) {
       ryadomAutostart.value = installOptions['RYADOMAUTOSTART'] != '0';
+      ryadomBackgroundNetwork.value =
+          installOptions['RYADOMBACKGROUNDNETWORK'] != '0';
     }
   }
 
@@ -223,7 +227,14 @@ class _InstallPageBodyState extends State<_InstallPageBody>
                     onChanged: btnEnabled.value
                         ? (value) => ryadomAutostart.value = value
                         : null)),
-              Container(
+              if (const bool.fromEnvironment('RYADOM') && isWindows)
+                Obx(() => RyadomInstallPrivacy(
+                    backgroundNetwork: ryadomBackgroundNetwork.value,
+                    onChanged: btnEnabled.value
+                        ? (value) => ryadomBackgroundNetwork.value = value
+                        : null)).marginSymmetric(vertical: em)
+              else
+                Container(
                   padding: EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: isDarkTheme
@@ -320,6 +331,7 @@ class _InstallPageBodyState extends State<_InstallPageBody>
       if (desktopicon.value) args += ' desktopicon';
       if (const bool.fromEnvironment('RYADOM') && isWindows) {
         args += ryadomAutostart.value ? ' autostart' : ' no-autostart';
+        args += ryadomInstallNetworkOption(ryadomBackgroundNetwork.value);
       }
       if (printer.value) args += ' printer';
       bind.installInstallMe(options: args, path: installPath);

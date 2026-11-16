@@ -77,7 +77,9 @@ reg add HKEY_LOCAL_MACHINE\{KEY} /f /v {VALUE} /t REG_DWORD /d {value} > nul || 
 }
 
 pub(super) fn install_commands(options: &str) -> String {
-    setup_commands(options, preference(), Config::get_option("stop-service") == "Y", config::is_outgoing_only())
+    let stopped = super::ryadom_install_privacy::selected(options)
+        .map(|enabled| !enabled).unwrap_or_else(|| Config::get_option("stop-service") == "Y");
+    setup_commands(options, preference(), stopped, config::is_outgoing_only())
 }
 
 pub(crate) fn set_enabled(enabled: bool) -> ResultType<Value> {

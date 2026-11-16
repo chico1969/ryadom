@@ -8,14 +8,14 @@ resolved. Do not invent users, contributors, reviews or public reputation.
 | Project name | Ryadom (Рядом) |
 | Repository | https://github.com/chico1969/ryadom (public fork, default branch ryadom) |
 | Homepage | https://github.com/chico1969/ryadom |
-| Download page | TO_FILL: actual development release URL |
+| Download page | https://github.com/chico1969/ryadom/releases/tag/ryadom-test-2026-11-16 (unsigned test release) |
 | License | GNU AGPL version 3; upstream notices retained |
-| Privacy policy | PRIVACY.md in the public fork; copy its actual URL after publication |
-| Code signing policy | CODE_SIGNING.md in the public fork; copy its actual URL after publication |
+| Privacy policy | https://github.com/chico1969/ryadom/blob/ryadom/PRIVACY.md |
+| Code signing policy | https://github.com/chico1969/ryadom/blob/ryadom/CODE_SIGNING.md |
 | Maintainer / contact | chico1969; TO_FILL: application email and any required legal/contact name |
 | Committers and reviewers | https://github.com/chico1969 ; initially one maintainer |
 | Release approver | chico1969; TO_FILL: confirmed SignPath identity; manual approvals |
-| Build system | GitHub Actions, exclusively GitHub-hosted Windows/Linux runners |
+| Proposed signing build system | GitHub Actions, exclusively GitHub-hosted Windows/Linux runners |
 | Target | Windows 10/11 x64; portable executable and service installer |
 
 ## Short description (ready to paste)
@@ -44,6 +44,18 @@ project's identity. Proprietary runtime components are not intentionally part
 of the Flutter build; a complete packaged dependency/license review is still
 required.
 
+License-grant documentation is unresolved for the pinned
+`flutter_gpu_texture_renderer`, `default_net` and `impersonate_system`
+dependencies. These need authoritative clarification; this worksheet does not
+assign a license to them. A partial `ryadom/THIRD_PARTY_NOTICES.txt` has been
+added to source for AOM, libvpx, libyuv and Opus. Its inclusion in the next
+packaged build and the remaining Rust/native notices still need validation.
+
+Clarification requests: [GPU renderer](https://github.com/rustdesk-org/flutter_gpu_texture_renderer/issues/5)
+and [default_net](https://github.com/rustdesk-org/default_net/issues/6).
+The `impersonate-system` repository has issues disabled; no request has been
+posted there. An unanswered request is not a license grant.
+
 ## Current reputation and testing (honest disclosure)
 
 This is a new project in development, currently tested by the owner and family
@@ -53,6 +65,13 @@ installer, update, service and autostart checks have passed. Full cross-network,
 long-duration and reboot acceptance testing remains in progress. We understand
 that the Foundation may decline a new project without verifiable public
 reputation and that a signature is not a security endorsement.
+
+An unsigned public test release is available at the download URL above.
+GitHub-hosted [run 43757455942](https://github.com/chico1969/ryadom/actions/runs/43757455942)
+succeeded without signing at revision `512671e`. That earlier run is not
+evidence that the current installer privacy changes or native notices have
+built and passed packaged validation. A fresh hosted build is required for the
+candidate submitted for signing.
 
 ## Signing design / questions for reviewer
 
@@ -65,8 +84,13 @@ the fork's eligibility and whether the initial single-maintainer role assignment
 is acceptable before enabling production signing.
 
 Family TURN account credentials and hosting/signing private keys will not be
-published or injected into the public signing build. The privacy disclosure and
-the installer's network opt-out must be reviewed before a public signed release.
+published or injected into the public signing build. The Windows installer
+source now displays its own local Russian privacy disclosure and a separate
+background-network choice, preserving the host's current choice on updates.
+Disabling it stops incoming background registration after installation;
+explicit outgoing connections and re-enabling incoming access may use the
+network again. Autostart remains independent. Packaged Windows validation and
+maintainer review are still required before a public signed release.
 
 ## Submission
 

@@ -14,8 +14,12 @@ This is an independent fork, not an official RustDesk release.
 ## Repository and roles
 
 The public repository is <https://github.com/chico1969/ryadom>, created as a
-visible fork. Ryadom development sources are published on its `ryadom` branch;
-CI validation and a public binary release are still in progress.
+visible fork. Ryadom development sources are published on its `ryadom` branch.
+The [public test release](https://github.com/chico1969/ryadom/releases/tag/ryadom-test-2026-11-16)
+is unsigned. An earlier [unsigned hosted build](https://github.com/chico1969/ryadom/actions/runs/43757455942)
+succeeded at revision `512671e`; it does not validate the current candidate's
+installer privacy changes or added native notices. A fresh hosted build and
+packaged validation are still required.
 See [the application worksheet](ryadom/signing/APPLICATION.md).
 The upstream Git remote is not the destination for Ryadom releases.
 
@@ -67,6 +71,19 @@ or public signing builds. The public workflow builds without bundled TURN
 credentials. Existing private family builds remain separate and unsigned.
 
 See [Privacy policy](PRIVACY.md) for network services and local data.
+The Windows installer source includes its own local privacy disclosure and an
+independent choice to disable background registration for incoming access.
+Windows autostart and explicitly started outgoing connections are separate.
+The packaged installer and this behavior must be validated and reviewed before
+production signing; their implementation does not imply SignPath approval.
+
+License-grant documentation remains unresolved for the pinned
+`flutter_gpu_texture_renderer`, `default_net` and `impersonate_system`
+dependencies. The new [native notices](ryadom/THIRD_PARTY_NOTICES.txt) cover
+AOM, libvpx, libyuv and Opus; they are a partial inventory. Their inclusion in
+the next packaged build and the remaining Rust/native notices still need
+validation. These documents do not assign missing licenses or certify that
+the dependency review is complete.
 
 ## Attribution after approval
 

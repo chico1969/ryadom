@@ -1,6 +1,6 @@
 # Ryadom / «Рядом»: privacy and network information
 
-Status: development policy, 15 November 2026. This describes the current source
+Status: development policy, 16 November 2026. This describes the current source
 and proposed public signing build. It must be reviewed by the project owner
 before publication. It is not a claim of legal certification.
 
@@ -56,8 +56,17 @@ The browser version uses browser storage for its local settings. The project
 does not provide cloud address-book synchronization, application accounts,
 advertising or a separate analytics service.
 
-Stop the app and disable its Windows autostart to stop its background network
-activity. Uninstall the Windows service to stop unattended access. Removing
+The Windows installer includes a readable Russian disclosure and a separate
+"Allow background connections for incoming access" choice. It preserves the
+host's existing choice when updating. If disabled, the installed app does not
+register this PC for incoming connections in the background. An explicitly
+started outgoing connection or enabling incoming access can use the network
+again. Windows autostart is a separate choice; disabling autostart does not
+terminate running connections. Older downloaded builds do not gain this
+installer choice without an update.
+
+Disable incoming access and close outgoing sessions to stop background access.
+Uninstall the Windows service to stop unattended access. Removing
 the app does not necessarily remove saved user configuration; remove the
 Ryadom profile data separately if you intend to erase the device's identity
 and access settings. Clear site storage to remove browser settings. Remove
@@ -66,11 +75,11 @@ recordings and downloaded files separately.
 ## Before a public signed release
 
 The maintainer must publish a contact method, review provider-policy links,
-verify all packaged dependencies' licenses, and ensure this disclosure is shown
-in the installer and reachable from the application. In particular, users must
-have an explicit way to decline/disable background signaling where required by
-the SignPath program. This preparatory document alone does not implement that
-UI and does not assert compliance with that requirement.
+verify all packaged dependencies' licenses, and validate the new installer's
+disclosure and background-network choice in the packaged Windows build. The
+installer displays its own policy text locally and links to this full policy.
+Source implementation and tests do not assert SignPath approval or replace the
+maintainer's privacy and runtime review.
 
 For now, report security/privacy issues privately to the repository owner after
 the official repository and contact method have been named. Do not post access

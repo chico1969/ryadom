@@ -994,6 +994,8 @@ def build_flutter_windows(version, features, skip_portable_pack):
         runtime_executable = 'Ryadom.exe'
         os.replace(os.path.join(flutter_build_dir_2, 'rustdesk.exe'),
                    os.path.join(flutter_build_dir_2, runtime_executable))
+        shutil.copy2('ryadom/THIRD_PARTY_NOTICES.txt', flutter_build_dir_2)
+        shutil.copy2('LICENCE', flutter_build_dir_2)
     if skip_portable_pack:
         return
     os.chdir('libs/portable')

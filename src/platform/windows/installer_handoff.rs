@@ -159,6 +159,8 @@ fn elevated_install_failure_reason(exit_code: u32) -> &'static str {
         9063 => "не удалось настроить ярлык автозапуска Рядом",
         #[cfg(feature = "ryadom")]
         9064 => "не удалось сохранить настройку автозапуска Рядом",
+        #[cfg(feature = "ryadom")]
+        9065 => "не удалось сохранить настройку фоновой связи Рядом",
         _ => "installer command failed",
     }
 }

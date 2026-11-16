@@ -56,6 +56,8 @@ pub fn core_main() -> Option<CoreMainAction> {
         return None;
     }
     #[cfg(all(feature = "ryadom", windows))]
+    if crate::platform::windows::ryadom_install_privacy::startup() { return None; }
+    #[cfg(all(feature = "ryadom", windows))]
     if let Some(result) = crate::platform::windows::ryadom_install::startup() {
         return result.err().map(CoreMainAction::ExitFailure);
     }
@@ -304,6 +306,8 @@ pub fn core_main() -> Option<CoreMainAction> {
                 let options = platform::get_silent_install_options(printer_override);
                 #[cfg(feature = "ryadom")]
                 let ryadom_options = platform::windows::ryadom_autostart::silent_options(options,&args);
+                #[cfg(feature = "ryadom")]
+                let ryadom_options = platform::windows::ryadom_install_privacy::silent_options(&ryadom_options,&args);
                 #[cfg(feature = "ryadom")]
                 let options = ryadom_options.as_str();
                 let res = platform::install_me(options, "".to_owned(), true, debug);

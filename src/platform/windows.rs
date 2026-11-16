@@ -106,6 +106,8 @@ mod msi_registry;
 pub(crate) mod ryadom_install;
 #[cfg(feature = "ryadom")]
 pub(crate) mod ryadom_autostart;
+#[cfg(feature = "ryadom")]
+pub(crate) mod ryadom_install_privacy;
 pub(crate) use acl::current_process_user_sid_string;
 pub use acl::{
     set_path_permission, set_path_permission_for_portable_service_shmem_dir,
@@ -1378,6 +1380,8 @@ pub fn get_install_options() -> String {
     let mut opts = HashMap::new();
     #[cfg(feature = "ryadom")]
     opts.insert("RYADOMAUTOSTART", if ryadom_autostart::preference() { "1" } else { "0" }.to_owned());
+    #[cfg(feature = "ryadom")]
+    opts.insert("RYADOMBACKGROUNDNETWORK", if ryadom_install_privacy::current() { "1" } else { "0" }.to_owned());
 
     let desktop_shortcuts = get_reg_of_hkcr(&subkey, REG_NAME_INSTALL_DESKTOPSHORTCUTS);
     if let Some(desktop_shortcuts) = desktop_shortcuts {
@@ -1771,20 +1775,30 @@ copy /Y \"{tmp_path}\\{app_name} Tray.lnk\" \"%PROGRAMDATA%\\Microsoft\\Windows\
         Some(reg_value_desktop_shortcuts),
         Some(reg_value_printer),
     );
+    #[cfg(not(feature = "ryadom"))]
     let after_install = native_after_install_commands(
         format!("{after_install}\r\n{install_remote_printer}"),
         &exe,
         true,
+    )?;
+    #[cfg(feature = "ryadom")]
+    let after_install = ryadom_install_privacy::after_install_commands(
+        format!("{after_install}\r\n{install_remote_printer}"), options, &exe,
     )?;
     // Remember to check if `update_me` need to be changed if changing the `cmds`.
     // No need to merge the existing dup code, because the code in these two functions are too critical.
     // New code should be written in a common function.
     #[cfg(feature = "ryadom")]
     let (import_config, migration_file) = ryadom_install::prepare(&exe)?;
+    #[cfg(feature = "ryadom")]
+    let mut import_config = ryadom_install_privacy::configuration_commands(import_config, options, &exe)?;
     #[cfg(not(feature = "ryadom"))]
     let import_config = get_import_config(&exe);
     #[cfg(feature = "ryadom")]
     let after_install = format!("{after_install}\r\n{}",ryadom_autostart::install_commands(options));
+    let copy_exe = copy_exe_cmd(&src_exe, &exe, &path)?;
+    #[cfg(feature = "ryadom")]
+    let copy_exe = ryadom_install_privacy::before_shortcuts(copy_exe, &mut import_config, options);
     let cmds = format!(
         "
 {uninstall_str}
@@ -1821,7 +1835,7 @@ copy /Y \"{tmp_path}\\Uninstall {app_name}.lnk\" \"{path}\\\"
         build_date = crate::BUILD_DATE,
         sleep = if debug { "timeout 300" } else { "" },
         dels = if debug { "" } else { &dels },
-        copy_exe = copy_exe_cmd(&src_exe, &exe, &path)?,
+        copy_exe = copy_exe,
         import_config = import_config,
     );
     let mut install_commands = InstallCommands {
@@ -1835,6 +1849,8 @@ copy /Y \"{tmp_path}\\Uninstall {app_name}.lnk\" \"{path}\\\"
         debug,
         "install",
     )?;
+    #[cfg(feature = "ryadom")]
+    ryadom_install_privacy::persist_user_choice(options)?;
     run_after_run_cmds(silent);
     Ok(())
 }
@@ -4046,6 +4062,11 @@ pub fn handle_service_control() -> Option<std::process::ExitCode> {
 }
 
 fn service_control_command(operation: &str, exe: &str, installed_now: bool) -> ResultType<String> {
+    #[cfg(feature = "ryadom")]
+    let install_choice = operation == "create-service-install-choice";
+    #[cfg(not(feature = "ryadom"))]
+    let install_choice = false;
+    let operation = if install_choice { "create-service" } else { operation };
     let app_name = crate::get_app_name();
     let is_create = matches!(operation, "create-service" | "create-service-with-rollback");
     let legacy = match operation {
@@ -4053,7 +4074,7 @@ fn service_control_command(operation: &str, exe: &str, installed_now: bool) -> R
         "remove" => format!("sc stop {app_name}\r\nsc delete {app_name}"),
         _ => bail!("Unsupported service operation: {operation}"),
     };
-    if legacy.is_empty() || (is_create && Config::get_option("stop-service") == "Y") {
+    if !install_choice && (legacy.is_empty() || (is_create && Config::get_option("stop-service") == "Y")) {
         return Ok(legacy);
     }
     // A fresh installation has just copied this runner. Otherwise only use the
