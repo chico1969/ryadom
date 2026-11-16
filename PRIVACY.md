@@ -74,13 +74,21 @@ recordings and downloaded files separately.
 
 ## Before a public signed release
 
-The maintainer must publish a contact method, review provider-policy links,
+The maintainer must review the contact method and provider-policy links,
 verify all packaged dependencies' licenses, and validate the new installer's
 disclosure and background-network choice in the packaged Windows build. The
 installer displays its own policy text locally and links to this full policy.
 Source implementation and tests do not assert SignPath approval or replace the
 maintainer's privacy and runtime review.
 
-For now, report security/privacy issues privately to the repository owner after
-the official repository and contact method have been named. Do not post access
-passwords, device private keys or personal logs in a public issue.
+## Contact
+
+For general privacy and support questions, use
+[Ryadom Issues](https://github.com/chico1969/ryadom/issues).
+For requests requiring personal information, first ask for a private contact
+channel in an issue without including that information. For security or
+privacy vulnerabilities, use **Security → Report a vulnerability** in the
+[official repository](https://github.com/chico1969/ryadom/security).
+Private vulnerability reporting is enabled. Follow [the security policy](SECURITY.md)
+and do not post access passwords, device private keys, personal logs or
+vulnerability details in a public issue. No response deadline is promised.
