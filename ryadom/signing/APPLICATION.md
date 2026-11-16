@@ -1,7 +1,10 @@
 # SignPath Foundation application worksheet
 
-Draft only. Do not submit until all `TO_FILL` fields and prerequisites are
-resolved. Do not invent users, contributors, reviews or public reputation.
+Draft only. Before submission, complete the contact fields in the official
+form and resolve the pre-submission prerequisites. Keep the owner's personal
+contact details out of this public worksheet. Configure the SignPath account,
+MFA and signing permissions once that account is available, before production
+signing. Do not invent users, contributors, reviews or public reputation.
 
 | Field | Proposed answer |
 | --- | --- |
@@ -12,9 +15,9 @@ resolved. Do not invent users, contributors, reviews or public reputation.
 | License | GNU AGPL version 3; upstream notices retained |
 | Privacy policy | https://github.com/chico1969/ryadom/blob/ryadom/PRIVACY.md |
 | Code signing policy | https://github.com/chico1969/ryadom/blob/ryadom/CODE_SIGNING.md |
-| Maintainer / contact | chico1969; TO_FILL: application email and any required legal/contact name |
+| Maintainer / contact | chico1969; owner supplies the required name and application email directly in the official form |
 | Committers and reviewers | https://github.com/chico1969 ; initially one maintainer |
-| Release approver | chico1969; TO_FILL: confirmed SignPath identity; manual approvals |
+| Release approver | chico1969; SignPath identity/MFA and manual approval role to be configured before production signing |
 | Proposed signing build system | GitHub Actions, exclusively GitHub-hosted Windows/Linux runners |
 | Target | Windows 10/11 x64; portable executable and service installer |
 
