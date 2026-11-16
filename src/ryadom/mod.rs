@@ -146,24 +146,37 @@ type Connected = (
 pub async fn connect(peer: &str, sid: u64, kind: hbb_common::rendezvous_proto::ConnType) -> ResultType<Connected> {
     let budget=resume::remaining_for(peer,sid,kind as i32).unwrap_or(Duration::from_secs(45)).min(Duration::from_secs(45));
     if budget.is_zero(){bail!("Разрешение на восстановление истекло");}
-    timeout(budget,connect_inner(peer,sid,kind)).await.map_err(|_|anyhow!("Время подключения истекло"))?
+    timeout(budget,connect_inner(peer,sid,kind,false)).await.map_err(|_|anyhow!("Время подключения истекло"))?
 }
-async fn connect_inner(peer: &str, sid: u64, kind: hbb_common::rendezvous_proto::ConnType) -> ResultType<Connected> {
+pub async fn connect_relay(peer: &str, sid: u64, kind: hbb_common::rendezvous_proto::ConnType) -> ResultType<Connected> {
+    let budget=resume::remaining_for(peer,sid,kind as i32).unwrap_or(Duration::from_secs(45)).min(Duration::from_secs(45));
+    if budget.is_zero(){bail!("Разрешение на восстановление истекло");}
+    timeout(budget,connect_inner(peer,sid,kind,true)).await.map_err(|_|anyhow!("Время подключения через TURN истекло"))?
+}
+async fn connect_inner(peer: &str, sid: u64, kind: hbb_common::rendezvous_proto::ConnType, force_relay: bool) -> ResultType<Connected> {
     network_helper::start();
     if !valid_id(peer) {
         bail!("Некорректный ID компьютера Рядом");
     }
     #[cfg(feature = "flutter")]
-    if kind == hbb_common::rendezvous_proto::ConnType::DEFAULT_CONN {
+    if !force_relay && kind == hbb_common::rendezvous_proto::ConnType::DEFAULT_CONN {
         if let Some((stream, public_key)) = p2p::take(peer, sid) {
             return Ok(((stream, true, Some(public_key), None, "WebRTC P2P"), (0,String::new())));
         }
     }
-    let (stream, public_key) = signaling::connect(peer).await?;
+    let (stream, public_key) = if force_relay {
+        signaling::connect_relay(peer).await?
+    } else {
+        signaling::connect(peer).await?
+    };
     let relayed = stream
         .is_relayed()
         .await
         .ok_or_else(|| anyhow!("Нет выбранного транспорта"))?;
+    if force_relay && !relayed {
+        stream.close_detached();
+        bail!("Прямое подключение вместо запрошенного TURN отклонено");
+    }
     let mut stream = Stream::WebRTC(stream);
     stream.set_max_packet_length(64 * 1024);
     let result = authenticate_host(peer, &public_key, &mut stream).await;

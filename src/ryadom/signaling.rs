@@ -176,23 +176,44 @@ pub async fn connect(peer: &str) -> ResultType<(WebRTCStream, Vec<u8>)> {
         bail!("Некорректный ID");
     }
     timeout(Duration::from_secs(45),async {
-        match connect_inner(peer,false,8_000).await {
+        match connect_inner(peer,false,8_000,false).await {
             Ok(stream)=>Ok(stream),
-            Err(_)=>connect_inner(peer,true,TIMEOUT).await,
+            Err(_)=>connect_inner(peer,true,TIMEOUT,false).await,
         }
     }).await
         .map_err(|_|anyhow!(if relay_allowed() { "Не удалось установить соединение. Проверьте сеть, доступность удалённого ПК и квоту TURN." } else { "Не удалось установить прямой канал. Резервный TURN в этой сборке ещё не настроен." }))?
 }
 
-pub(super) async fn connect_direct(peer:&str)->ResultType<(WebRTCStream,Vec<u8>)> {
-    timeout(Duration::from_secs(15),connect_inner(peer,false,8_000)).await?
+fn require_relay_configuration(configured: bool) -> ResultType<()> {
+    if !configured { bail!("Для принудительного подключения через TURN настройте TURN на этом ПК"); }
+    Ok(())
 }
 
-async fn connect_inner(peer: &str, allow_turn:bool, budget:u64) -> ResultType<(WebRTCStream, Vec<u8>)> {
+fn require_relay_transport(relayed: Option<bool>) -> ResultType<()> {
+    if relayed != Some(true) { bail!("Не удалось подтвердить принудительное соединение через TURN"); }
+    Ok(())
+}
+
+pub(super) async fn connect_relay(peer: &str) -> ResultType<(WebRTCStream, Vec<u8>)> {
+    if !valid_id(peer) { bail!("Некорректный ID"); }
+    require_relay_configuration(WebRTCStream::has_turn_server())?;
+    timeout(Duration::from_secs(45),connect_inner(peer,true,TIMEOUT,true)).await
+        .map_err(|_|anyhow!("Не удалось установить принудительное соединение через TURN"))?
+}
+
+pub(super) async fn connect_direct(peer:&str)->ResultType<(WebRTCStream,Vec<u8>)> {
+    timeout(Duration::from_secs(15),connect_inner(peer,false,8_000,false)).await?
+}
+
+async fn connect_inner(peer: &str, allow_turn:bool, budget:u64, force_relay:bool) -> ResultType<(WebRTCStream, Vec<u8>)> {
     let client_id = format!("ryadom-client-{}", uuid::Uuid::new_v4());
     let mut socket = open(&client_id).await?;
-    let pending = Pending::new(WebRTCStream::new_ryadom("", TIMEOUT,
-        super::network_helper::ice_options(allow_turn)).await?);
+    let pending = Pending::new(if force_relay {
+        WebRTCStream::new("",true,TIMEOUT).await?
+    } else {
+        WebRTCStream::new_ryadom("", TIMEOUT,
+            super::network_helper::ice_options(allow_turn)).await?
+    });
     let mut local = pending
         .stream
         .take_local_ice_rx()
@@ -245,6 +266,7 @@ async fn connect_inner(peer: &str, allow_turn:bool, budget:u64) -> ResultType<(W
         }
     }
     check_transport(pending.stream.is_relayed().await, allow_turn)?;
+    if force_relay { require_relay_transport(pending.stream.is_relayed().await)?; }
     let pk = public_key.ok_or_else(|| anyhow!("Нет проверенной личности ПК"))?;
     let stream = pending.finish();
     let _ = socket.close(None).await;
@@ -413,6 +435,19 @@ async fn accept(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn forced_relay_requires_turn_on_the_connecting_pc() {
+        assert!(require_relay_configuration(false).is_err());
+        assert!(require_relay_configuration(true).is_ok());
+    }
+
+    #[test]
+    fn forced_relay_rejects_direct_or_unknown_transport() {
+        assert!(require_relay_transport(Some(false)).is_err());
+        assert!(require_relay_transport(None).is_err());
+        assert!(require_relay_transport(Some(true)).is_ok());
+    }
+
     #[test]
     fn signaling_applies_explicit_relay_policy() {
         assert!(candidate_policy(

@@ -394,6 +394,9 @@ impl Client {
         {
             if config::is_incoming_only() { bail!("Incoming only mode"); }
             let sid = interface.get_lch().read().unwrap().session_id;
+            if interface.is_policy_relay() {
+                return crate::ryadom::connect_relay(peer, sid, conn_type).await;
+            }
             return crate::ryadom::connect(peer, sid, conn_type).await;
         }
         #[cfg(not(feature = "ryadom"))]
